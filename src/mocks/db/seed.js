@@ -3,6 +3,7 @@
  */
 
 import { DEMO_ORGANISATION_NAME, DEMO_USER_EMAIL, DEMO_USER_NAME } from "../demo.js";
+import { CASHFLOW_CATEGORIES } from "../../pages/constants.js";
 
 const portfolioNames = [
   "North Island",
@@ -115,19 +116,46 @@ function buildVehicles(customers) {
   return vehicles;
 }
 
-function buildMeterReadings(portfolioRows, date) {
+function pickCashflowCategory(index, type) {
+  const income = CASHFLOW_CATEGORIES.income;
+  const expense = CASHFLOW_CATEGORIES.expense;
+  if (type === "net income") return income[index % income.length];
+  return expense[index % expense.length];
+}
+
+function buildMeterReadings(portfolioRows, date, products) {
   const out = {};
   let id = 1;
   for (const row of Object.values(portfolioRows)) {
+    const productId = (id % 20) + 1;
+    const prod = products[productId] || {
+      product: `SKU-${String(productId).padStart(3, "0")} Premium`,
+      price: 2.5 + productId * 0.15,
+      uom: "L",
+      category: "Fuel",
+    };
+    const uiCategory = prod.category === "Fuel" ? "Fuel" : "Others";
+    const soldQty = 30 + (id % 40) + 10;
+    const opening = 10000 + id * 50;
+    const closing = opening + soldQty;
+    const discontinued = id % 5 === 0;
     out[id] = {
       id,
       sales_unit_name: `Pump-${row.shift_id}-${id}`,
       portfolio_id: row.portfolio_id,
       shift_id: row.shift_id,
-      meter_reading: 10000 + id * 33,
-      status: id % 5 === 0 ? "Discontinued" : "Active",
+      product_id: productId,
+      product_name: prod.product,
+      price: prod.price,
+      uom: prod.uom,
+      category: uiCategory,
+      opening_reading: opening,
+      closing_reading: closing,
+      sold_quantity: soldQty,
+      meter_reading: closing,
+      status: discontinued ? "Discontinued" : "Active",
+      discontinued,
       date,
-      product_id: (id % 20) + 1,
     };
     id++;
     if (id > 22) break;
@@ -138,6 +166,8 @@ function buildMeterReadings(portfolioRows, date) {
 function buildCashflowEntries(shiftId, portfolioId, date) {
   const entries = {};
   for (let i = 1; i <= 18; i++) {
+    const type = i % 2 === 1 ? "net income" : "expense";
+    const category = pickCashflowCategory(i, type);
     entries[i] = {
       id: i,
       shift_id: shiftId,
@@ -145,8 +175,9 @@ function buildCashflowEntries(shiftId, portfolioId, date) {
       date,
       mode: i % 2 ? "Cash" : "Card",
       amount: 50 + i * 12,
-      description: `Entry ${i}`,
-      type: i % 3 ? "income" : "expense",
+      category,
+      description: `${category} — shift ${shiftId}`,
+      type,
     };
   }
   return entries;
@@ -289,10 +320,10 @@ export function createSeedState() {
 
   const p1 = portfolio["1"];
   const meterKey = `${p1.portfolio_id}_${p1.shift_id}_${today}`;
-  state.meterByKey[meterKey] = buildMeterReadings(portfolio, today);
+  state.meterByKey[meterKey] = buildMeterReadings(portfolio, today, products);
   for (const row of Object.values(portfolio).slice(0, 8)) {
     const k = `${row.portfolio_id}_${row.shift_id}_${today}`;
-    state.meterByKey[k] = buildMeterReadings(portfolio, today);
+    state.meterByKey[k] = buildMeterReadings(portfolio, today, products);
     state.cashflowByKey[k] = buildCashflowEntries(row.shift_id, row.portfolio_id, today);
   }
 

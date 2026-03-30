@@ -43,7 +43,7 @@ export function mergeOneMeterRow(row) {
   if (!db.meterByKey[key]) db.meterByKey[key] = {};
   const bucket = db.meterByKey[key];
   let id = row.id;
-  if (id == null || id === "") {
+  if (id == null || id === "" || (typeof id === "string" && id.startsWith("temp-"))) {
     id = nextNumericKey(bucket);
   }
   const idx = String(id);
@@ -52,6 +52,12 @@ export function mergeOneMeterRow(row) {
     row.closing_reading != null && row.closing_reading !== ""
       ? Number(row.closing_reading)
       : null;
+  const discontinued =
+    row.discontinued != null
+      ? Boolean(row.discontinued)
+      : row.status === "Discontinued" ||
+        existing.status === "Discontinued" ||
+        existing.discontinued === true;
   bucket[idx] = {
     ...existing,
     ...row,
@@ -66,6 +72,7 @@ export function mergeOneMeterRow(row) {
       (row.product_id
         ? `SKU-${String(row.product_id).padStart(3, "0")} Premium`
         : existing.product_name),
+    discontinued,
   };
 }
 
@@ -100,7 +107,8 @@ export function applyMeterChangeStatus(body) {
       const next =
         body.status ??
         (row.status === "Active" ? "Discontinued" : "Active");
-      bucket[k] = { ...row, status: next };
+      const discontinued = next === "Discontinued";
+      bucket[k] = { ...row, status: next, discontinued };
       return true;
     });
     if (found) return;
@@ -108,7 +116,9 @@ export function applyMeterChangeStatus(body) {
   if (body.sales_unit_name) {
     forEachMeterEntry((row, bucket, k) => {
       if (row.sales_unit_name !== body.sales_unit_name) return;
-      bucket[k] = { ...row, status: body.status };
+      const next = body.status ?? row.status;
+      const discontinued = next === "Discontinued";
+      bucket[k] = { ...row, status: next, discontinued };
       return true;
     });
   }
@@ -128,7 +138,9 @@ export function applyCashflowUpsert(body) {
     if (!db.cashflowByKey[key]) db.cashflowByKey[key] = {};
     const bucket = db.cashflowByKey[key];
     let id = row.id;
-    if (id == null) id = nextNumericKey(bucket);
+    if (id == null || id === "" || (typeof id === "string" && id.startsWith("temp-"))) {
+      id = nextNumericKey(bucket);
+    }
     const idx = String(id);
     bucket[idx] = {
       ...bucket[idx],
@@ -138,6 +150,7 @@ export function applyCashflowUpsert(body) {
       portfolio_id: Number(pid),
       mode: row.mode,
       amount: row.amount,
+      category: row.category ?? bucket[idx]?.category ?? "",
       description: row.description ?? row.category ?? "",
       type: row.type,
     };
@@ -156,6 +169,48 @@ export function deleteCashflowEntryById(id) {
     }
   }
   return false;
+}
+
+/** Aggregate cashflow rows for island summary (types: "net income" | "expense"). */
+export function summarizeCashflowBucket(bucket) {
+  let net_income = 0;
+  let expense = 0;
+  for (const row of Object.values(bucket || {})) {
+    const amt = Number(row.amount) || 0;
+    if (row.type === "net income") net_income += amt;
+    else if (row.type === "expense") expense += amt;
+  }
+  return {
+    net_income,
+    expense,
+    credit: 0,
+    total_cashflow: net_income + expense,
+  };
+}
+
+/** Sum price × sold_quantity for meter rows (matches sales tab income). */
+export function summarizeMeterTotalSales(bucket) {
+  let total = 0;
+  for (const row of Object.values(bucket || {})) {
+    const price = Number(row.price);
+    const sq = Number(row.sold_quantity);
+    if (!Number.isNaN(price) && !Number.isNaN(sq)) {
+      total += price * sq;
+    }
+  }
+  return total;
+}
+
+/** Clear cashflow for one portfolio / shift / date (island tab). */
+export function deleteCashflowBucket(portfolioId, shiftId, dateStr) {
+  const key = cfKey(portfolioId, shiftId, dateStr);
+  if (db.cashflowByKey[key]) db.cashflowByKey[key] = {};
+}
+
+/** Clear meter readings for one portfolio / shift / date. */
+export function clearMeterBucket(portfolioId, shiftId, dateStr) {
+  const key = cfKey(portfolioId, shiftId, dateStr);
+  if (db.meterByKey[key]) db.meterByKey[key] = {};
 }
 
 export function deleteCashflowAllForDate(dateStr) {

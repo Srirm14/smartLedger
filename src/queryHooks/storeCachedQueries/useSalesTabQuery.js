@@ -5,7 +5,13 @@ import {
   bulkUpsertMeterReadings as bulkUpsertMeterReadingsApi,
   deleteSalesUnit as deleteSalesUnitApi,
   changeMeterReadingStatus as changeMeterReadingStatusApi,
+  deleteAllMeterReadingsForShift as deleteAllMeterReadingsForShiftApi,
 } from "@/services/apiService";
+
+function sortIslandRowsByIdDesc(rows) {
+  if (!Array.isArray(rows)) return [];
+  return [...rows].sort((a, b) => Number(b?.id) - Number(a?.id));
+}
 import { 
   QUERY_KEYS, 
   createTabQueryOptions, 
@@ -25,8 +31,8 @@ export const useSalesTabQuery = (portfolioId, shiftId, date) => {
     queryFn: async () => {
       try {
         const response = await getSales_unit(portfolioId, shiftId, date);
-        // Convert object to array if needed
-        return Array.isArray(response) ? response : Object.values(response);
+        const list = Array.isArray(response) ? response : Object.values(response || {});
+        return sortIslandRowsByIdDesc(list);
       } catch (error) {
         console.error("Error fetching sales products:", error);
         throw error;
@@ -34,6 +40,30 @@ export const useSalesTabQuery = (portfolioId, shiftId, date) => {
     },
     ...createTabQueryOptions({
       enabled: Boolean(portfolioId && shiftId && date),
+    }),
+  });
+
+  const { mutate: deleteAllSalesUnitsMutation, isLoading: isDeletingAll } = useMutation({
+    mutationFn: async ({ date: d, portfolioId: pid, shiftId: sid }) => {
+      const toastId = toast.loading("Deleting all sales units...");
+      try {
+        await deleteAllMeterReadingsForShiftApi(d, pid, sid);
+        toast.success("All sales units removed for this shift", { id: toastId });
+      } catch (error) {
+        toast.error("Failed to delete all sales units", { id: toastId });
+        throw error;
+      }
+    },
+    ...createMutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.SALES.products(portfolioId, shiftId, date),
+          refetchType: "all",
+        });
+      },
+      onError: (error) => {
+        console.error("Error deleting all sales units:", error);
+      },
     }),
   });
 
@@ -123,6 +153,7 @@ export const useSalesTabQuery = (portfolioId, shiftId, date) => {
     isSalesProductsListLoading,
     isUpserting,
     isDeleting,
+    isDeletingAll,
     isUpdatingStatus,
     
     // Error state
@@ -131,6 +162,7 @@ export const useSalesTabQuery = (portfolioId, shiftId, date) => {
     // Mutations
     upsertMeterReadings,
     deleteSalesUnitMutation,
+    deleteAllSalesUnitsMutation,
     updateMeterReadingStatus,
   };
 }; 

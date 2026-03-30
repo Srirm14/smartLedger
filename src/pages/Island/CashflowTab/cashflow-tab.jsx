@@ -47,6 +47,7 @@ export function CashflowTab({ shift }) {
   const [showActions, setShowActions] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogData, setDialogData] = useState(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
   // React Query hook
   const {
@@ -56,14 +57,16 @@ export function CashflowTab({ shift }) {
     isSummaryLoading,
     isUpserting,
     isDeleting,
+    isDeletingAll,
     upsertCashflow,
     deleteCashflowMutation,
+    deleteAllCashflowMutation,
   } = useCashflowTabQuery(shift.portfolio_id, shift.shift_id, IslandSelectedDate);
 
   // Compute loading state
   const isLoading = useMemo(() => 
-    isCashflowLoading || isSummaryLoading || isUpserting || isDeleting,
-    [isCashflowLoading, isSummaryLoading, isUpserting, isDeleting]
+    isCashflowLoading || isSummaryLoading || isUpserting || isDeleting || isDeletingAll,
+    [isCashflowLoading, isSummaryLoading, isUpserting, isDeleting, isDeletingAll]
   );
 
   // Fetch payment modes on component mount
@@ -664,6 +667,14 @@ export function CashflowTab({ shift }) {
             <CirclePlus className="h-3 w-3 md:h-4 md:w-4" />
             <span>Track Cashflow</span>
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setDeleteAllOpen(true)}
+            className="px-2 md:px-4 py-1 md:py-2 text-xs md:text-sm rounded-lg border-[var(--danger-500)] text-[var(--danger-600)] hover:bg-[var(--danger-50)] dark:hover:bg-[var(--danger-950)]"
+            disabled={isLoading || !cashflow?.length}
+          >
+            Delete all
+          </Button>
         </div>
       </div>
 
@@ -690,6 +701,27 @@ export function CashflowTab({ shift }) {
             setDialogOpen(false);
           }}
           onCancel={() => setDialogOpen(false)}
+          variant="danger"
+        />
+      )}
+
+      {deleteAllOpen && (
+        <WarningPrompt
+          open={deleteAllOpen}
+          onOpenChange={setDeleteAllOpen}
+          title="Delete all cashflow"
+          description="Remove every cashflow row for this portfolio, shift, and date. This cannot be undone."
+          actionText="DELETE ALL"
+          onAction={() => {
+            deleteAllCashflowMutation({
+              date: IslandSelectedDate,
+              portfolioId: shift.portfolio_id,
+              shiftId: shift.shift_id,
+            });
+            setDeleteAllOpen(false);
+            setShowActions(false);
+          }}
+          onCancel={() => setDeleteAllOpen(false)}
           variant="danger"
         />
       )}

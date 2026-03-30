@@ -44,6 +44,7 @@ export function SalesProductsTab({ shift }) {
 
   // Dialog state for delete confirmation
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const [selectedSalesUnit, setSelectedSalesUnit] = useState(null)
 
   // Get state and actions from stores
@@ -57,10 +58,12 @@ export function SalesProductsTab({ shift }) {
     isSalesProductsListLoading,
     isUpserting,
     isDeleting,
+    isDeletingAll,
     isUpdatingStatus,
     salesProductsError,
     upsertMeterReadings,
     deleteSalesUnitMutation,
+    deleteAllSalesUnitsMutation,
     updateMeterReadingStatus,
   } = useSalesTabQuery(shift.portfolio_id, shift.shift_id, islandDate)
 
@@ -80,8 +83,8 @@ export function SalesProductsTab({ shift }) {
 
   // Compute loading state
   const isLoading = useMemo(() => 
-    isSalesProductsListLoading || isUpserting || isDeleting || isUpdatingStatus, 
-    [isSalesProductsListLoading, isUpserting, isDeleting, isUpdatingStatus]
+    isSalesProductsListLoading || isUpserting || isDeleting || isDeletingAll || isUpdatingStatus, 
+    [isSalesProductsListLoading, isUpserting, isDeleting, isDeletingAll, isUpdatingStatus]
   )
 
   /**
@@ -497,7 +500,10 @@ export function SalesProductsTab({ shift }) {
         currentReading: isNaN(Number.parseFloat(unit.closing_reading)) ? "" : Number.parseFloat(unit.closing_reading),
         soldQuantity: unit.sold_quantity,
         salesIncome: calculateSalesIncome(unit.price, unit.sold_quantity),
-        status: unit.discontinued ? "Discontinued" : "Active",
+        status:
+          unit.discontinued === true || unit.status === "Discontinued"
+            ? "Discontinued"
+            : "Active",
       }))
 
       setSalesProducts(transformedData)
@@ -916,6 +922,14 @@ export function SalesProductsTab({ shift }) {
             <CirclePlus className="h-3 w-3 md:h-4 md:w-4" />
             <span>Add Sales Unit</span>
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setDeleteAllOpen(true)}
+            className="px-2 md:px-4 py-1 md:py-2 text-xs md:text-sm rounded-lg border-[var(--danger-500)] text-[var(--danger-600)] hover:bg-[var(--danger-50)] dark:hover:bg-[var(--danger-950)]"
+            disabled={isLoading || !salesProducts?.length}
+          >
+            Delete all
+          </Button>
         </div>
       </div>
 
@@ -941,6 +955,27 @@ export function SalesProductsTab({ shift }) {
         onCancel={() => setIsDeleteDialogOpen(false)}
         variant="danger"
       />
+
+      {deleteAllOpen && (
+        <WarningPrompt
+          open={deleteAllOpen}
+          onOpenChange={setDeleteAllOpen}
+          title="Delete all sales units"
+          description="Remove every sales unit for this portfolio, shift, and date. This cannot be undone."
+          actionText="DELETE ALL"
+          onAction={() => {
+            deleteAllSalesUnitsMutation({
+              date: islandDate,
+              portfolioId: shift.portfolio_id,
+              shiftId: shift.shift_id,
+            })
+            setDeleteAllOpen(false)
+            setShowActions(false)
+          }}
+          onCancel={() => setDeleteAllOpen(false)}
+          variant="danger"
+        />
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import { delayGet, delayWrite } from "../utils.js";
 import { db } from "../db/index.js";
 import { pathIs, pathRegex } from "../matchPath.js";
+import { CASHFLOW_CATEGORIES } from "../../pages/constants.js";
 import {
   todayISO,
   cfKey,
@@ -13,6 +14,8 @@ import {
   applyCashflowUpsert,
   deleteCashflowEntryById,
   deleteCashflowAllForDate,
+  deleteCashflowBucket,
+  clearMeterBucket,
   applyProductAdd,
   applyProductUpdate,
   applyProductPriceUpdate,
@@ -104,9 +107,18 @@ function buildMeterReadingHistoryObject(stockId) {
   return out;
 }
 
-function buildCashflowEntriesDynamic(shiftId, portfolioId, date) {
+function pickCashflowCategory(index, type) {
+  const income = CASHFLOW_CATEGORIES.income;
+  const expense = CASHFLOW_CATEGORIES.expense;
+  if (type === "net income") return income[index % income.length];
+  return expense[index % expense.length];
+}
+
+export function buildCashflowEntriesDynamic(shiftId, portfolioId, date) {
   const entries = {};
   for (let i = 1; i <= 18; i++) {
+    const type = i % 2 === 1 ? "net income" : "expense";
+    const category = pickCashflowCategory(i, type);
     entries[i] = {
       id: i,
       shift_id: Number(shiftId),
@@ -114,25 +126,48 @@ function buildCashflowEntriesDynamic(shiftId, portfolioId, date) {
       date,
       mode: i % 2 ? "Cash" : "Card",
       amount: 50 + i * 12,
-      description: `Entry ${i}`,
-      type: i % 3 ? "income" : "expense",
+      category,
+      description: `${category} — shift ${shiftId}`,
+      type,
     };
   }
   return entries;
 }
 
-function buildMeterReadingsDynamic(portfolioId, shiftId, date) {
+export function buildMeterReadingsDynamic(portfolioId, shiftId, date) {
   const out = {};
+  const dateStr = date || today();
+  const products = db.productsByDate[dateStr] || db.productsByDate[today()] || {};
   for (let i = 1; i <= 14; i++) {
+    const productId = (i % 20) + 1;
+    const prod = products[productId] || {
+      product: `SKU-${String(productId).padStart(3, "0")} Premium`,
+      price: 2.5 + productId * 0.15,
+      uom: "L",
+      category: "Fuel",
+    };
+    const uiCategory = prod.category === "Fuel" ? "Fuel" : "Others";
+    const soldQty = 30 + (i % 40) + 10;
+    const opening = 10000 + i * 100;
+    const closing = opening + soldQty;
+    const discontinued = i % 7 === 0;
     out[i] = {
       id: i,
       sales_unit_name: `Pump-${portfolioId}-${shiftId}-${i}`,
       portfolio_id: Number(portfolioId),
       shift_id: Number(shiftId),
-      meter_reading: 10000 + i * 100,
-      status: i % 7 === 0 ? "Discontinued" : "Active",
-      date,
-      product_id: (i % 20) + 1,
+      product_id: productId,
+      product_name: prod.product,
+      price: prod.price,
+      uom: prod.uom,
+      category: uiCategory,
+      opening_reading: opening,
+      closing_reading: closing,
+      sold_quantity: soldQty,
+      meter_reading: closing,
+      status: discontinued ? "Discontinued" : "Active",
+      discontinued,
+      date: dateStr,
     };
   }
   return out;
@@ -167,6 +202,47 @@ function resolveProductsSnapshot(date) {
   const clone = structuredClone(src);
   db.productsByDate[d] = clone;
   return clone;
+}
+
+/** Align list_shifts with seed shiftConfigRows + overflow rows so shift_id matches meter/cashflow keys */
+function shiftsForPortfolio(portfolioId, date) {
+  const d = date || today();
+  const pid = Number(portfolioId) || 1;
+  const configRows = Object.values(db.shiftConfigRows || {}).filter(
+    (r) => Number(r.portfolio_id) === pid
+  );
+  if (configRows.length > 0) {
+    return configRows.map((r) => ({
+      id: r.shift_id,
+      portfolio_id: r.portfolio_id,
+      shift_name: r.shift_name,
+      shift_start_time: r.shift_start_time || "06:00",
+      shift_end_time: r.shift_end_time || "14:00",
+      active: r.active !== false,
+    }));
+  }
+  const snap = resolvePortfolioSnapshot(d);
+  const rows = Object.values(snap).filter((row) => Number(row.portfolio_id) === pid);
+  if (rows.length === 0) {
+    return [
+      {
+        id: pid * 100 + 1,
+        portfolio_id: pid,
+        shift_name: "Morning",
+        shift_start_time: "06:00",
+        shift_end_time: "14:00",
+        active: true,
+      },
+    ];
+  }
+  return rows.map((row) => ({
+    id: row.shift_id,
+    portfolio_id: row.portfolio_id,
+    shift_name: row.shift_name,
+    shift_start_time: "06:00",
+    shift_end_time: "14:00",
+    active: true,
+  }));
 }
 
 export const domainHandlers = [
@@ -210,7 +286,7 @@ export const domainHandlers = [
     }
   ),
 
-  http.get("*/product/get", async ({ request }) => {
+  http.get(pathIs("/product/get"), async ({ request }) => {
     await delayGet();
     const url = new URL(request.url);
     const date = url.searchParams.get("date") || today();
@@ -249,7 +325,7 @@ export const domainHandlers = [
     return HttpResponse.json({ ok: true });
   }),
 
-  http.get("*/portfolio/get", async ({ request }) => {
+  http.get(pathIs("/portfolio/get"), async ({ request }) => {
     await delayGet();
     const url = new URL(request.url);
     const date = url.searchParams.get("date") || today();
@@ -391,7 +467,25 @@ export const domainHandlers = [
     await delayWrite();
     const url = new URL(request.url);
     const date = url.searchParams.get("date");
-    if (date) deleteCashflowAllForDate(date);
+    const portfolioId = url.searchParams.get("portfolio_id");
+    const shiftId = url.searchParams.get("shift_id");
+    if (date && portfolioId != null && shiftId != null) {
+      deleteCashflowBucket(portfolioId, shiftId, date);
+    } else if (date) {
+      deleteCashflowAllForDate(date);
+    }
+    return HttpResponse.json({ ok: true });
+  }),
+
+  http.delete("*/meter_reading/delete_all", async ({ request }) => {
+    await delayWrite();
+    const url = new URL(request.url);
+    const date = url.searchParams.get("date");
+    const portfolioId = url.searchParams.get("portfolio_id");
+    const shiftId = url.searchParams.get("shift_id");
+    if (date && portfolioId != null && shiftId != null) {
+      clearMeterBucket(portfolioId, shiftId, date);
+    }
     return HttpResponse.json({ ok: true });
   }),
 
@@ -413,7 +507,7 @@ export const domainHandlers = [
         transactions: Array.from({ length: 20 }, (_, i) => ({
           id: i + 1,
           amount: 100 + i * 5,
-          type: i % 2 ? "income" : "expense",
+          type: i % 2 ? "net income" : "expense",
           mode: "Cash",
         })),
         summary: {

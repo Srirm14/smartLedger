@@ -504,21 +504,38 @@ export const deleteCashflow = async (id) => {
   }
 };
 
-export const DeleteAllCashflow = async (date) => {
+export const DeleteAllCashflow = async (date, portfolioId, shiftId) => {
   try {
     const token = getToken();
+    const params = { date };
+    if (portfolioId != null && portfolioId !== "") params.portfolio_id = portfolioId;
+    if (shiftId != null && shiftId !== "") params.shift_id = shiftId;
     const response = await axiosInstance.delete("/cashflow/delete_all", {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
       },
-      params: {
-        date: date,
-      },
+      params,
     });
     return response.data;
   } catch (error) {
     throw new Error("Failed to delete all cashflow");
+  }
+};
+
+/** Remove all meter rows for the current island shift + date (mock / demo). */
+export const deleteAllMeterReadingsForShift = async (date, portfolioId, shiftId) => {
+  try {
+    const response = await axiosInstance.delete("/meter_reading/delete_all", {
+      params: {
+        date,
+        portfolio_id: portfolioId,
+        shift_id: shiftId,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error("Failed to delete all sales units");
   }
 };
 

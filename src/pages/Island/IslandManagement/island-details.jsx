@@ -177,10 +177,11 @@ export function IslandDetails() {
     }
   }, [IslandSelectedDate, portfolioList, fetchPortfolioList]);
 
-  // Fetch shifts when portfolio is found
+  // Fetch shifts when portfolio is found (API expects portfolio_id, not row id)
   useEffect(() => {
-    if (!isPortfolioLoading && currentPortfolio?.id) {
-      fetchPortfolioShifts(currentPortfolio.id, IslandSelectedDate);
+    const pid = currentPortfolio?.portfolio_id ?? currentPortfolio?.id;
+    if (!isPortfolioLoading && pid != null) {
+      fetchPortfolioShifts(pid, IslandSelectedDate);
     }
   }, [IslandSelectedDate, fetchPortfolioShifts, currentPortfolio, isPortfolioLoading]);
 

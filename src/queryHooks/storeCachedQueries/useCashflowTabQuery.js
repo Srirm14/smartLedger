@@ -4,8 +4,14 @@ import {
   getCashflow,
   bulkUpsertCashflow as bulkUpsertCashflowApi,
   deleteCashflow as deleteCashflowApi,
+  DeleteAllCashflow as deleteAllCashflowApi,
   getIslandShiftSpecificCashflowSummary as getIslandShiftSpecificCashflowSummaryApi,
 } from "@/services/apiService";
+
+function sortIslandRowsByIdDesc(rows) {
+  if (!Array.isArray(rows)) return [];
+  return [...rows].sort((a, b) => Number(b?.id) - Number(a?.id));
+}
 import { 
   QUERY_KEYS, 
   createTabQueryOptions, 
@@ -66,7 +72,8 @@ export const useCashflowTabQuery = (portfolioId, shiftId, date) => {
     queryFn: async () => {
       try {
         const response = await getCashflow(shiftId, portfolioId, date);
-        return Array.isArray(response) ? response : Object.values(response);
+        const list = Array.isArray(response) ? response : Object.values(response || {});
+        return sortIslandRowsByIdDesc(list);
       } catch (error) {
         console.error("Error fetching cashflow data:", error);
         throw error;
@@ -134,6 +141,34 @@ export const useCashflowTabQuery = (portfolioId, shiftId, date) => {
     }),
   });
 
+  const { mutate: deleteAllCashflowMutation, isLoading: isDeletingAll } = useMutation({
+    mutationFn: async ({ date: d, portfolioId: pid, shiftId: sid }) => {
+      const toastId = toast.loading("Deleting all cashflow entries...");
+      try {
+        await deleteAllCashflowApi(d, pid, sid);
+        toast.success("All cashflow entries removed for this shift", { id: toastId });
+      } catch (error) {
+        toast.error("Failed to delete all cashflow entries", { id: toastId });
+        throw error;
+      }
+    },
+    ...createMutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.CASHFLOW.data(portfolioId, shiftId, date),
+          refetchType: "all",
+        });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.CASHFLOW.summary(portfolioId, shiftId, date),
+          refetchType: "all",
+        });
+      },
+      onError: (error) => {
+        console.error("Error deleting all cashflow:", error);
+      },
+    }),
+  });
+
   // Mutation for deleting a cashflow entry
   const { mutate: deleteCashflowMutation, isLoading: isDeleting } = useMutation({
     mutationFn: async (id) => {
@@ -174,6 +209,7 @@ export const useCashflowTabQuery = (portfolioId, shiftId, date) => {
     isSummaryLoading,
     isUpserting,
     isDeleting,
+    isDeletingAll,
     
     // Error states
     cashflowError,
@@ -182,6 +218,7 @@ export const useCashflowTabQuery = (portfolioId, shiftId, date) => {
     // Mutations
     upsertCashflow,
     deleteCashflowMutation,
+    deleteAllCashflowMutation,
     
     // Utility functions
     invalidateAllCashflowQueries: () => invalidateAllCashflowQueries(queryClient),

@@ -1,5 +1,16 @@
 import { http, HttpResponse } from "msw";
 import { delayGet } from "../utils.js";
+import { db } from "../db/index.js";
+import {
+  cfKey,
+  summarizeCashflowBucket,
+  summarizeMeterTotalSales,
+  todayISO,
+} from "../ryw.js";
+import {
+  buildCashflowEntriesDynamic,
+  buildMeterReadingsDynamic,
+} from "./domain.js";
 
 const portfolioNames = [
   "North Island",
@@ -202,16 +213,26 @@ export const reportHandlers = [
     async ({ request }) => {
       await delayGet();
       const url = new URL(request.url);
-      const date = url.searchParams.get("date") || "";
+      const dateRaw = url.searchParams.get("date") || "";
+      const dateStr = dateRaw || todayISO();
       const shiftId = url.searchParams.get("shift_id");
       const portfolioId = url.searchParams.get("portfolio_id");
+      const key = cfKey(portfolioId, shiftId, dateStr);
+      let cfBucket = db.cashflowByKey[key];
+      if (!cfBucket || Object.keys(cfBucket).length === 0) {
+        cfBucket = buildCashflowEntriesDynamic(shiftId, portfolioId, dateStr);
+      }
+      let meterBucket = db.meterByKey[key];
+      if (!meterBucket || Object.keys(meterBucket).length === 0) {
+        meterBucket = buildMeterReadingsDynamic(portfolioId, shiftId, dateStr);
+      }
+      const cf = summarizeCashflowBucket(cfBucket);
+      const total_sales = summarizeMeterTotalSales(meterBucket);
       return HttpResponse.json({
-        net_income: 4200 + (Number(portfolioId) || 1) * 10,
-        expense: 800,
-        credit: 250,
-        total_cashflow: 5000,
-        total_sales: 6000,
-        date,
+        ...cf,
+        credit: 0,
+        total_sales,
+        date: dateStr,
         shift_id: shiftId,
         portfolio_id: portfolioId,
       });
