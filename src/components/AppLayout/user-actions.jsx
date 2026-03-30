@@ -108,11 +108,14 @@ export function UserActions({ user, isCollapsed }) {
           {(org.name || "?").charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         {loading ? (
           <Skeleton className="h-4 w-24 bg-[var(--neutral-gray200)] dark:bg-[var(--neutral-gray700)]" />
         ) : (
-          <h2 className="text-sm font-medium text-[var(--neutral-gray900)] dark:text-[var(--neutral-gray100)] transition-all">
+          <h2
+            className=" text-xs font-medium leading-tight text-[var(--neutral-gray900)] transition-all dark:text-[var(--neutral-gray100)]"
+            title={org.name}
+          >
             {(org.name || "").replace(/\b\w/g, (char) => char.toUpperCase())}
           </h2>
         )}
