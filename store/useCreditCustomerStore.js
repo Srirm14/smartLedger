@@ -41,33 +41,29 @@ export const useCreditCustomerStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await getCustomerDetails(customerId);
-      
-      // Format the response data to extract customer details
+      const cid = Number(customerId);
       let formattedCustomerDetails = null;
-      
-      if (response && typeof response === 'object') {
-        // Handle the object format with numeric keys
-        if (!Array.isArray(response)) {
-          // Find the customer data in the object by ID
-          const customerData = Object.values(response).find(customer => 
-            customer && typeof customer === 'object' && customer.id === customerId
-          );
-          
-          if (customerData) {
-            formattedCustomerDetails = customerData;
-          } else {
-            // If not found by ID, take the first customer (fallback)
-            const firstCustomer = Object.values(response)[0];
-            if (firstCustomer) {
-              formattedCustomerDetails = firstCustomer;
-            }
-          }
+
+      if (response && typeof response === "object") {
+        if (Array.isArray(response)) {
+          formattedCustomerDetails =
+            response.find((c) => Number(c?.id) === cid) ?? response[0] ?? null;
+        } else if (response.id != null && Number(response.id) === cid) {
+          /** Single customer object from `/customer/customer_details` (same shape as list row). */
+          formattedCustomerDetails = response;
         } else {
-          // Direct array response
-          formattedCustomerDetails = response.find(customer => customer.id === customerId) || response[0];
+          const values = Object.values(response);
+          formattedCustomerDetails = values.find(
+            (c) => c && typeof c === "object" && Number(c.id) === cid
+          );
+          if (!formattedCustomerDetails) {
+            formattedCustomerDetails = values.find(
+              (c) => c && typeof c === "object" && (c.customer_name != null || c.name != null)
+            );
+          }
         }
       }
-      
+
       set({ customerDetails: formattedCustomerDetails });
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Error fetching customer details";

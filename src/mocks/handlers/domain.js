@@ -13,6 +13,7 @@ import {
   applyMeterChangeStatus,
   applyCashflowUpsert,
   deleteCashflowEntryById,
+  buildTransactionLedgerResponse,
   deleteCashflowAllForDate,
   deleteCashflowBucket,
   clearMeterBucket,
@@ -460,7 +461,7 @@ export const domainHandlers = [
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     if (id) deleteCashflowEntryById(id);
-    return HttpResponse.json({ ok: true });
+    return HttpResponse.json({ ok: true, message: "deleted" });
   }),
 
   http.delete("*/cashflow/delete_all", async ({ request }) => {
@@ -499,23 +500,20 @@ export const domainHandlers = [
     return HttpResponse.json(db.allCashflow.length ? db.allCashflow : []);
   }),
 
-  http.get("*/cashflow/transaction_ledger", async () => {
+  http.get("*/cashflow/transaction_ledger", async ({ request }) => {
     await delayGet();
+    const url = new URL(request.url);
+    const data = buildTransactionLedgerResponse({
+      startDate: url.searchParams.get("start_date"),
+      endDate: url.searchParams.get("end_date"),
+      portfolioId: url.searchParams.get("portfolio_id"),
+      shiftId: url.searchParams.get("shift_id"),
+      mode: url.searchParams.get("mode"),
+      type: url.searchParams.get("type"),
+    });
     return HttpResponse.json({
       success: true,
-      data: {
-        transactions: Array.from({ length: 20 }, (_, i) => ({
-          id: i + 1,
-          amount: 100 + i * 5,
-          type: i % 2 ? "net income" : "expense",
-          mode: "Cash",
-        })),
-        summary: {
-          total_income: 12000,
-          total_expense: 4000,
-          net_cashflow: 8000,
-        },
-      },
+      data,
     });
   }),
 
@@ -535,7 +533,7 @@ export const domainHandlers = [
 
   http.get("*/cashflow/global_entries", async () => {
     await delayGet();
-    return HttpResponse.json({ 1: { id: 1, label: "Entry A" } });
+    return HttpResponse.json(db.globalEntries || {});
   }),
 
   http.get("*/customer/get", async () => {
@@ -668,9 +666,21 @@ export const domainHandlers = [
     const url = new URL(request.url);
     const cid = Number(url.searchParams.get("customer_id"));
     const c = db.customers[cid] || {};
+    const bal = Number(c.balance ?? c.outstanding ?? 0);
+    const out = Number(c.outstanding ?? c.balance ?? bal);
     return HttpResponse.json({
       ...c,
-      customer_name: c.customer_name ?? c.name,
+      id: cid,
+      customer_name: c.customer_name ?? c.name ?? "",
+      name: c.name ?? c.customer_name ?? "",
+      email: c.email ?? "",
+      contact_phone: c.contact_phone ?? "",
+      credit_limit: c.credit_limit ?? 0,
+      balance: bal,
+      outstanding: out,
+      is_active: c.is_active !== false,
+      unbilled_amount: Number(c.unbilled_amount ?? 0),
+      created_at: c.created_at ?? null,
     });
   }),
 
@@ -678,10 +688,33 @@ export const domainHandlers = [
     await delayGet();
     const url = new URL(request.url);
     const page = url.searchParams.get("page") || "1";
+    const filtersParam = url.searchParams.get("filters");
     const rec = db.creditRecords;
+    let rows = Object.values(rec.data || {});
+    if (filtersParam) {
+      try {
+        const filters = JSON.parse(filtersParam);
+        const f0 = Array.isArray(filters) ? filters[0] : null;
+        if (f0?.filterOption === "customer_name" && f0.searchTerm) {
+          const term = decodeURIComponent(String(f0.searchTerm).replace(/\+/g, " "))
+            .trim()
+            .toLowerCase();
+          rows = rows.filter((r) => {
+            const name = String(r.customer_name || "").toLowerCase();
+            return name === term || name.includes(term);
+          });
+        }
+      } catch {
+        /* ignore malformed filters */
+      }
+    }
+    const data = {};
+    for (const row of rows) {
+      if (row?.id != null) data[String(row.id)] = row;
+    }
     return HttpResponse.json({
-      data: rec.data,
-      total_count: rec.total_count ?? 20,
+      data,
+      total_count: rows.length,
       page: Number(page),
       page_size: rec.page_size ?? 20,
     });

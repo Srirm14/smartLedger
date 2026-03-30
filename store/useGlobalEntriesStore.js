@@ -11,11 +11,17 @@ const useGlobalEntriesStore = create((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const response = await getGlobalEntriesApi();
-      if (response ) {
-        set({ globalEntries: response, isLoading: false });
-      } else {
-        set({ globalEntries: [], isLoading: false });
-      }
+      const raw = response && typeof response === "object" ? response : {};
+      const arr = Array.isArray(raw)
+        ? raw
+        : Object.values(raw);
+      arr.sort((a, b) => {
+        const tb = new Date(b.date || 0).getTime();
+        const ta = new Date(a.date || 0).getTime();
+        if (tb !== ta) return tb - ta;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
+      set({ globalEntries: arr, isLoading: false });
     } catch (error) {
       console.error('Error fetching global entries:', error);
       set({ error: error.message, isLoading: false });
@@ -26,8 +32,8 @@ const useGlobalEntriesStore = create((set, get) => ({
   addGlobalEntry: async (entries) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await upsertCashflowApi( entries );
-      if (response.status) {
+      const response = await upsertCashflowApi(entries);
+      if (response?.ok) {
         await get().fetchGlobalEntries();
         toast.success('Global entries added successfully');
       }
@@ -35,14 +41,16 @@ const useGlobalEntriesStore = create((set, get) => ({
       console.error('Error adding global entries:', error);
       set({ error: error.message, isLoading: false });
       toast.error('Failed to add global entries');
+    } finally {
+      set({ isLoading: false });
     }
   },
 
   updateGlobalEntry: async (entry) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await upsertCashflowApi({ cashflow: [entry] });
-      if (response.status) {
+      const response = await upsertCashflowApi([entry]);
+      if (response?.ok) {
         await get().fetchGlobalEntries();
         toast.success('Global entry updated successfully');
       }
@@ -50,6 +58,8 @@ const useGlobalEntriesStore = create((set, get) => ({
       console.error('Error updating global entry:', error);
       set({ error: error.message, isLoading: false });
       toast.error('Failed to update global entry');
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -57,7 +67,7 @@ const useGlobalEntriesStore = create((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const response = await deleteCashflowApi(id);
-      if (response.message) {
+      if (response?.ok || response?.message) {
         await get().fetchGlobalEntries();
         toast.success('Global entry deleted successfully');
       }
@@ -65,6 +75,8 @@ const useGlobalEntriesStore = create((set, get) => ({
       console.error('Error deleting global entry:', error);
       set({ error: error.message, isLoading: false });
       toast.error('Failed to delete global entry');
+    } finally {
+      set({ isLoading: false });
     }
   }
 }));

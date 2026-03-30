@@ -73,6 +73,7 @@ function buildCustomers() {
   const customers = {};
   for (let i = 1; i <= 20; i++) {
     const nm = `Customer ${i} Ltd`;
+    const bal = Math.round((i * 42.5 + (i % 3) * 100) * 100) / 100;
     customers[i] = {
       id: i,
       name: nm,
@@ -81,7 +82,10 @@ function buildCustomers() {
       contact_phone: `+1555000${String(i).padStart(4, "0")}`,
       credit_limit: 5000 + i * 250,
       is_active: i % 7 !== 0,
-      balance: i * 42.5,
+      balance: bal,
+      outstanding: bal,
+      unbilled_amount: Number((i % 5) * 25.5),
+      created_at: new Date(2024, (i % 12), (i % 28) + 1, 10, 0, 0).toISOString(),
     };
   }
   return customers;
@@ -234,6 +238,36 @@ function buildVehiclesGroupedByCustomer(vehicles) {
   return data;
 }
 
+function buildGlobalEntries(today) {
+  const categories = ["Rent", "Utilities", "Payroll", "Insurance", "Marketing", "Supplies"];
+  const modes = ["Cash", "Card", "Transfer"];
+  const out = {};
+  for (let i = 0; i < 16; i++) {
+    const id = 500 + i;
+    const day = 30 - (i % 14);
+    const ds = `2026-03-${String(Math.max(1, day)).padStart(2, "0")}`;
+    out[String(id)] = {
+      id,
+      date: ds,
+      type: "expense",
+      amount: 250 + i * 60,
+      mode: modes[i % modes.length],
+      category: categories[i % categories.length],
+      description: `${categories[i % categories.length]} — global entry ${i + 1}`,
+    };
+  }
+  out["516"] = {
+    id: 516,
+    date: today,
+    type: "expense",
+    amount: 1750,
+    mode: "Cash",
+    category: "Supplies",
+    description: "Same-day global expense",
+  };
+  return out;
+}
+
 function buildShiftConfigRows() {
   const out = {};
   let id = 1;
@@ -324,8 +358,17 @@ export function createSeedState() {
   for (const row of Object.values(portfolio).slice(0, 8)) {
     const k = `${row.portfolio_id}_${row.shift_id}_${today}`;
     state.meterByKey[k] = buildMeterReadings(portfolio, today, products);
-    state.cashflowByKey[k] = buildCashflowEntries(row.shift_id, row.portfolio_id, today);
   }
+
+  const ledgerDates = [today, "2026-03-28", "2026-03-29", "2026-03-15", "2026-03-10"];
+  for (const ds of ledgerDates) {
+    for (const row of Object.values(portfolio).slice(0, 8)) {
+      const k = `${row.portfolio_id}_${row.shift_id}_${ds}`;
+      state.cashflowByKey[k] = buildCashflowEntries(row.shift_id, row.portfolio_id, ds);
+    }
+  }
+
+  state.globalEntries = buildGlobalEntries(today);
 
   for (let d = 1; d <= 15; d++) {
     const ds = `2026-03-${String(d).padStart(2, "0")}`;

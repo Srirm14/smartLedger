@@ -126,6 +126,173 @@ export function applyMeterChangeStatus(body) {
 
 /** --- Cashflow (per portfolio/shift/date bucket) --- */
 
+function applyGlobalCashflowRow(row) {
+  if (!db.globalEntries) db.globalEntries = {};
+  let id = row.id;
+  if (id == null || id === "" || (typeof id === "string" && id.startsWith("temp-"))) {
+    id = nextNumericKey(db.globalEntries);
+  }
+  const idx = String(id);
+  const merged = {
+    ...db.globalEntries[idx],
+    ...row,
+    id: Number(id),
+    date: row.date || todayISO(),
+    type: row.type || "expense",
+    amount: Number(row.amount) || 0,
+    mode: row.mode || "Cash",
+    category: row.category ?? "",
+    description: row.description ?? "",
+  };
+  delete merged.portfolio_id;
+  delete merged.shift_id;
+  db.globalEntries[idx] = merged;
+}
+
+function bankNameForMode(modeName) {
+  const m = (db.modes || []).find((x) => x.mode_name === modeName);
+  const fallback = db.bankAccounts?.[0]?.bank_name ?? "Demo National Bank";
+  if (!m) return fallback;
+  const bank = (db.bankAccounts || []).find((b) => b.id === m.associated_account);
+  return bank?.bank_name ?? fallback;
+}
+
+function findPortfolioShiftNames(portfolioId, shiftId, dateStr) {
+  const snap = db.portfolioByDate?.[dateStr] || db.portfolioByDate?.[todayISO()] || {};
+  const row = Object.values(snap).find(
+    (p) =>
+      Number(p.portfolio_id) === Number(portfolioId) &&
+      Number(p.shift_id) === Number(shiftId)
+  );
+  const shiftRow = db.shiftConfigRows?.[String(shiftId)];
+  return {
+    portfolio_name:
+      row?.portfolio_name ?? shiftRow?.portfolio_name ?? `Island ${portfolioId}`,
+    shift_name: row?.shift_name ?? shiftRow?.shift_name ?? `Shift ${shiftId}`,
+  };
+}
+
+function parseCfKey(key) {
+  const parts = key.split("_");
+  if (parts.length < 3) return null;
+  const dateStr = parts[parts.length - 1];
+  const shiftId = Number(parts[parts.length - 2]);
+  const portfolioId = Number(parts.slice(0, -2).join("_"));
+  if (Number.isNaN(portfolioId) || Number.isNaN(shiftId)) return null;
+  return { portfolioId, shiftId, dateStr };
+}
+
+/** Transaction ledger + summary for Cashflow page (island rows + global entries). */
+export function buildTransactionLedgerResponse(filters) {
+  const {
+    startDate = null,
+    endDate = null,
+    portfolioId = null,
+    shiftId = null,
+    mode = null,
+    type = null,
+  } = filters || {};
+
+  const rows = [];
+
+  for (const key of Object.keys(db.cashflowByKey || {})) {
+    const parsed = parseCfKey(key);
+    if (!parsed) continue;
+    const { portfolioId: pid, shiftId: sid, dateStr: dateFromKey } = parsed;
+
+    if (startDate && dateFromKey < startDate) continue;
+    if (endDate && dateFromKey > endDate) continue;
+    if (portfolioId != null && portfolioId !== "" && String(portfolioId) !== "null") {
+      if (Number(portfolioId) !== Number(pid)) continue;
+    }
+    if (shiftId != null && shiftId !== "" && String(shiftId) !== "null") {
+      if (Number(shiftId) !== Number(sid)) continue;
+    }
+
+    const { portfolio_name, shift_name } = findPortfolioShiftNames(pid, sid, dateFromKey);
+    const bucket = db.cashflowByKey[key];
+    for (const row of Object.values(bucket || {})) {
+      const rowDateFinal = row.date || dateFromKey;
+      if (startDate && rowDateFinal < startDate) continue;
+      if (endDate && rowDateFinal > endDate) continue;
+      if (mode && String(row.mode) !== String(mode)) continue;
+      if (type && row.type !== type) continue;
+
+      const modeName = row.mode || "Cash";
+      rows.push({
+        id: `c-${key}-${row.id}`,
+        date: rowDateFinal,
+        portfolio_id: Number(pid),
+        portfolio_name,
+        shift_id: Number(sid),
+        shift_name,
+        bank_account: modeName,
+        bank_name: bankNameForMode(modeName),
+        mode: modeName,
+        type: row.type,
+        amount: Number(row.amount) || 0,
+        category: row.category,
+        description: row.description,
+      });
+    }
+  }
+
+  const portfolioFilterActive =
+    portfolioId != null && portfolioId !== "" && String(portfolioId) !== "null";
+  const shiftFilterActive = shiftId != null && shiftId !== "" && String(shiftId) !== "null";
+
+  for (const ge of Object.values(db.globalEntries || {})) {
+    const d = ge.date || todayISO();
+    if (startDate && d < startDate) continue;
+    if (endDate && d > endDate) continue;
+    if (portfolioFilterActive) continue;
+    if (shiftFilterActive) continue;
+    if (mode && String(ge.mode) !== String(mode)) continue;
+    if (type && ge.type !== type) continue;
+
+    const modeName = ge.mode || "Cash";
+    rows.push({
+      id: `g-${ge.id}`,
+      date: d,
+      portfolio_id: null,
+      portfolio_name: "Global",
+      shift_id: null,
+      shift_name: "N/A",
+      bank_account: modeName,
+      bank_name: bankNameForMode(modeName),
+      mode: modeName,
+      type: ge.type || "expense",
+      amount: Number(ge.amount) || 0,
+      category: ge.category,
+      description: ge.description,
+    });
+  }
+
+  rows.sort((a, b) => {
+    const da = new Date(a.date).getTime();
+    const db_ = new Date(b.date).getTime();
+    if (db_ !== da) return db_ - da;
+    return String(b.id).localeCompare(String(a.id));
+  });
+
+  let total_income = 0;
+  let total_expense = 0;
+  for (const t of rows) {
+    const amt = Number(t.amount) || 0;
+    if (t.type === "net income") total_income += amt;
+    else if (t.type === "expense") total_expense += amt;
+  }
+
+  return {
+    transactions: rows,
+    summary: {
+      total_income,
+      total_expense,
+      net_cashflow: total_income - total_expense,
+    },
+  };
+}
+
 export function applyCashflowUpsert(body) {
   const rows = body?.cashflow ?? body?.cashFlow ?? (Array.isArray(body) ? body : []);
   if (!Array.isArray(rows)) return;
@@ -133,7 +300,10 @@ export function applyCashflowUpsert(body) {
     const pid = row.portfolio_id;
     const sid = row.shift_id;
     const date = row.date || todayISO();
-    if (pid == null || sid == null) continue;
+    if (pid == null || sid == null) {
+      applyGlobalCashflowRow(row);
+      continue;
+    }
     const key = cfKey(pid, sid, date);
     if (!db.cashflowByKey[key]) db.cashflowByKey[key] = {};
     const bucket = db.cashflowByKey[key];
@@ -159,6 +329,10 @@ export function applyCashflowUpsert(body) {
 
 export function deleteCashflowEntryById(id) {
   const sid = String(id);
+  if (db.globalEntries?.[sid]) {
+    delete db.globalEntries[sid];
+    return true;
+  }
   for (const key of Object.keys(db.cashflowByKey)) {
     const bucket = db.cashflowByKey[key];
     for (const k of Object.keys(bucket)) {
@@ -314,6 +488,8 @@ export function applyCustomerAdd(body) {
   const ids = Object.keys(db.customers).map(Number);
   const newId = ids.length ? Math.max(...ids) + 1 : 1;
   const name = body.name ?? body.customer_name ?? `Customer ${newId}`;
+  const bal = body.balance ?? body.outstanding ?? 0;
+  const now = new Date().toISOString();
   db.customers[newId] = {
     id: newId,
     name,
@@ -322,7 +498,10 @@ export function applyCustomerAdd(body) {
     contact_phone: body.contact_phone ?? "+15550000000",
     credit_limit: body.credit_limit ?? 5000,
     is_active: body.is_active !== false,
-    balance: body.balance ?? 0,
+    balance: bal,
+    outstanding: body.outstanding ?? bal,
+    unbilled_amount: body.unbilled_amount ?? 0,
+    created_at: now,
   };
   return newId;
 }
@@ -330,17 +509,56 @@ export function applyCustomerAdd(body) {
 export function applyCustomerUpdate(body, customerId) {
   const id = Number(customerId ?? body.id);
   if (Number.isNaN(id) || !db.customers[id]) return;
-  db.customers[id] = {
-    ...db.customers[id],
+  const prev = db.customers[id];
+  const merged = {
+    ...prev,
     ...body,
-    name: body.name ?? db.customers[id].name,
-    customer_name: body.customer_name ?? body.name ?? db.customers[id].customer_name,
+    id: prev.id,
+    name: body.name ?? prev.name,
+    customer_name: body.customer_name ?? body.name ?? prev.customer_name,
   };
+  if (body.balance !== undefined || body.outstanding !== undefined) {
+    const b = body.balance ?? body.outstanding ?? prev.balance ?? 0;
+    const o = body.outstanding ?? body.balance ?? prev.outstanding ?? prev.balance ?? b;
+    merged.balance = b;
+    merged.outstanding = o;
+  } else {
+    merged.balance = prev.balance ?? 0;
+    merged.outstanding = prev.outstanding ?? prev.balance ?? 0;
+  }
+  if (body.unbilled_amount !== undefined) {
+    merged.unbilled_amount = Number(body.unbilled_amount);
+  } else if (merged.unbilled_amount === undefined) {
+    merged.unbilled_amount = prev.unbilled_amount ?? 0;
+  }
+  db.customers[id] = merged;
+}
+
+function rebuildVehiclesGroupedFromList() {
+  const grouped = {};
+  for (const v of db.vehicles) {
+    const key = String(v.customer_id);
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({ ...v, vehicle_no: v.vehicle_number });
+  }
+  db.vehiclesGrouped = grouped;
 }
 
 export function deleteCustomerById(id) {
   const k = Number(id);
-  if (!Number.isNaN(k)) delete db.customers[k];
+  if (Number.isNaN(k) || !db.customers[k]) return;
+  delete db.customers[k];
+  db.vehicles = db.vehicles.filter((v) => Number(v.customer_id) !== k);
+  rebuildVehiclesGroupedFromList();
+  delete db.transactionsByCustomer[k];
+  if (db.creditRecords?.data) {
+    for (const ck of Object.keys(db.creditRecords.data)) {
+      const row = db.creditRecords.data[ck];
+      if (row && Number(row.customer_id) === k) {
+        delete db.creditRecords.data[ck];
+      }
+    }
+  }
 }
 
 export function toggleCustomerStatus(id) {

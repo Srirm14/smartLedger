@@ -42,8 +42,8 @@ export const getCashflowTransactionsApi = async (filters = {}) => {
     const params = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
-    if (portfolioId) params.portfolio_id = portfolioId;
-    if (shiftId) params.shift_id = shiftId;
+    if (portfolioId != null && portfolioId !== "") params.portfolio_id = portfolioId;
+    if (shiftId != null && shiftId !== "") params.shift_id = shiftId;
     if (mode) params.mode = mode;
     if (type) params.type = type;
     

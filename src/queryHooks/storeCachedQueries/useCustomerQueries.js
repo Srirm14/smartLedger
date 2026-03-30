@@ -13,13 +13,23 @@ import {
   createMutationOptions 
 } from '../../utils/queryConfig';
 
+function sortCustomersNewestFirst(list) {
+  if (!Array.isArray(list)) return [];
+  return [...list].sort((a, b) => {
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return Number(b.id) - Number(a.id);
+  });
+}
+
 // Hook for fetching customers
 export const useCustomers = (filters = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.CUSTOMER.list(filters),
     queryFn: async () => {
       const response = await getCustomer();
-      return Object.values(response);
+      return sortCustomersNewestFirst(Object.values(response || {}));
     },
     ...createQueryOptions({
       enabled: true, // Always enabled for customer list
@@ -33,7 +43,7 @@ export const useCustomer = (customerId) => {
     queryKey: QUERY_KEYS.CUSTOMER.detail(customerId),
     queryFn: async () => {
       const response = await getCustomer();
-      const customers = Object.values(response);
+      const customers = sortCustomersNewestFirst(Object.values(response || {}));
       return customers.find(customer => customer.id === customerId);
     },
     ...createQueryOptions({
