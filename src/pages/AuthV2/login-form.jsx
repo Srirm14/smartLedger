@@ -25,8 +25,8 @@ export function LoginForm() {
   const loginAction = useAuthStore((state) => state.loginAction);
 
   const form = createZodForm(loginSchema, {
-    email: "",
-    password: "",
+    email: "demo@gmail.com",
+    password: "demo123",
   });
 
   const togglePasswordVisibility = () => setPasswordVisible(!passwordVisible);
