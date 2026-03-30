@@ -279,6 +279,9 @@ export function createSeedState() {
     stockItems: [],
     transactionsByCustomer: {},
     tallyCache: {},
+    stockTransactionHistoryByStockId: {},
+    stockMeterHistoryByStockId: {},
+    stockLinkedUnitsByStockId: {},
   };
 
   state.productsByDate[today] = { ...products };

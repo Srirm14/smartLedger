@@ -11,22 +11,8 @@ import {
   QUERY_KEYS, 
   createTabQueryOptions, 
   createMutationOptions,
-  invalidateRelatedQueries 
 } from '../../utils/queryConfig';
-
-// Transform API response to match our data structure
-const transformInventoryResponse = (response) => {
-  if (!response || typeof response !== 'object') return [];
-  return Object.values(response).map((item) => ({
-    id: item.id,
-    product: item.product,
-    category: item.category,
-    price: item.price,
-    uom: item.uom,
-    discontinued: item.discontinued,
-    createdAt: item.created_at,
-  }));
-};
+import { normalizeInventoryResponse } from '../../lib/inventorySort';
 
 // Hook for fetching inventory products
 export const useInventoryProducts = (date) => {
@@ -34,7 +20,7 @@ export const useInventoryProducts = (date) => {
     queryKey: QUERY_KEYS.INVENTORY.list(date),
     queryFn: async () => {
       const response = await getInventory(date);
-      return transformInventoryResponse(response);
+      return normalizeInventoryResponse(response);
     },
     ...createTabQueryOptions({
       enabled: Boolean(date),

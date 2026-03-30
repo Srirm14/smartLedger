@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { delayGet, delayWrite } from "../utils.js";
 import { db } from "../db/index.js";
+import { pathIs, pathRegex } from "../matchPath.js";
 import {
   todayISO,
   cfKey,
@@ -29,6 +30,12 @@ import {
   addStock,
   updateStock,
   deleteStockById,
+  updateStockAlert,
+  appendStockTransaction,
+  updateStockTransactionRow,
+  deleteStockTransactionRowById,
+  linkSalesUnitToStock,
+  unlinkSalesUnitFromStock,
   deleteEmployeeById,
   applyPortfolioAdd,
   applyPortfolioUpdate,
@@ -49,6 +56,18 @@ const today = todayISO;
 function stockRowById(id) {
   const row = db.stockItems.find((s) => String(s.id) === String(id));
   return row || db.stockItems[0];
+}
+
+function mergedStockTransactionHistory(stockId) {
+  const base = buildStockTransactionHistoryObject(stockId);
+  const ext = db.stockTransactionHistoryByStockId?.[String(stockId)] || {};
+  return { ...base, ...ext };
+}
+
+function mergedMeterReadingHistory(stockId) {
+  const base = buildMeterReadingHistoryObject(stockId);
+  const ext = db.stockMeterHistoryByStockId?.[String(stockId)] || {};
+  return { ...base, ...ext };
 }
 
 function buildStockTransactionHistoryObject(stockId) {
@@ -711,31 +730,36 @@ export const domainHandlers = [
     return HttpResponse.json({ message: "ok" });
   }),
 
-  http.get("*/stock_management/get", async () => {
+  http.get(pathIs("/stock_management/get"), async () => {
     await delayGet();
-    return HttpResponse.json(db.stockItems);
+    const sorted = [...db.stockItems].sort(
+      (a, b) => (Number(b.id) || 0) - (Number(a.id) || 0)
+    );
+    return HttpResponse.json(sorted);
   }),
 
-  http.post("*/stock_management/add_stock", async ({ request }) => {
+  http.post(pathIs("/stock_management/add_stock"), async ({ request }) => {
     await delayWrite();
     const body = await parseJson(request);
     const id = addStock(body);
     return HttpResponse.json({ id, status: "success" });
   }),
 
-  http.post("*/stock_management/update", async ({ request }) => {
+  http.post(pathIs("/stock_management/update"), async ({ request }) => {
     await delayWrite();
     const body = await parseJson(request);
     updateStock(body);
     return HttpResponse.json({ status: "success", message: "Updated" });
   }),
 
-  http.post("*/stock_management/update_alert", async () => {
+  http.post(pathIs("/stock_management/update_alert"), async ({ request }) => {
     await delayWrite();
+    const body = await parseJson(request);
+    updateStockAlert(body);
     return HttpResponse.json({ status: "success", message: "Alert updated" });
   }),
 
-  http.get("*/stock_management/get_stock_details", async ({ request }) => {
+  http.get(pathIs("/stock_management/get_stock_details"), async ({ request }) => {
     await delayGet();
     const id = new URL(request.url).searchParams.get("id");
     const row = stockRowById(id);
@@ -748,7 +772,7 @@ export const domainHandlers = [
     ]);
   }),
 
-  http.get("*/stock_management/get_stock_management_header", async ({ request }) => {
+  http.get(pathIs("/stock_management/get_stock_management_header"), async ({ request }) => {
     await delayGet();
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
@@ -763,55 +787,75 @@ export const domainHandlers = [
     });
   }),
 
-  http.get("*/stock_management/get_stock_transaction_history", async ({ request }) => {
+  http.get(pathIs("/stock_management/get_stock_transaction_history"), async ({ request }) => {
     await delayGet();
     const id = new URL(request.url).searchParams.get("id");
-    return HttpResponse.json(buildStockTransactionHistoryObject(id));
+    return HttpResponse.json(mergedStockTransactionHistory(id));
   }),
 
-  http.get("*/stock_management/get_meter_reading_history", async ({ request }) => {
+  http.get(pathIs("/stock_management/get_meter_reading_history"), async ({ request }) => {
     await delayGet();
     const id = new URL(request.url).searchParams.get("id");
-    return HttpResponse.json(buildMeterReadingHistoryObject(id));
+    return HttpResponse.json(mergedMeterReadingHistory(id));
   }),
 
-  http.get("*/stock_management/get_stock_sales_unit_link", async ({ request }) => {
+  http.get(pathIs("/stock_management/get_stock_sales_unit_link"), async ({ request }) => {
     await delayGet();
     const id = new URL(request.url).searchParams.get("id");
-    return HttpResponse.json([
+    const base = [
       { id: Number(id) * 2, sales_unit_name: `Linked-Unit-${id}-1`, quantity: 12 },
       { id: Number(id) * 2 + 1, sales_unit_name: `Linked-Unit-${id}-2`, quantity: 8 },
-    ]);
+    ];
+    const custom = db.stockLinkedUnitsByStockId?.[String(id)] ?? [];
+    const merged = [...base];
+    for (const c of custom) {
+      if (!merged.some((m) => String(m.id) === String(c.id))) merged.push(c);
+    }
+    return HttpResponse.json(merged);
   }),
 
-  http.post("*/stock_management/link_sales_unit", async () => {
+  http.post(pathIs("/stock_management/link_sales_unit"), async ({ request }) => {
     await delayWrite();
+    const body = await parseJson(request);
+    linkSalesUnitToStock(body);
     return HttpResponse.json({ status: "success", message: "Linked" });
   }),
 
-  http.post("*/stock_management/unlink_sales_unit", async () => {
+  http.post(pathIs("/stock_management/unlink_sales_unit"), async ({ request }) => {
     await delayWrite();
+    const body = await parseJson(request);
+    unlinkSalesUnitFromStock(body);
     return HttpResponse.json({ status: "success", message: "Unlinked" });
   }),
 
-  http.post("*/stock_management/add_stock_transaction", async () => {
+  http.post(pathIs("/stock_management/add_stock_transaction"), async ({ request }) => {
     await delayWrite();
+    const body = await parseJson(request);
+    appendStockTransaction(body);
     return HttpResponse.json({ status: "success", message: "Stock added" });
   }),
 
-  http.post("*/stock_management/update_stock_transaction", async () => {
+  http.post(pathIs("/stock_management/update_stock_transaction"), async ({ request }) => {
     await delayWrite();
+    const body = await parseJson(request);
+    updateStockTransactionRow(body);
     return HttpResponse.json({ status: "success", message: "Transaction updated" });
   }),
 
-  http.delete("*/stock_management/delete_stock_transaction", async () => {
+  http.delete(pathIs("/stock_management/delete_stock_transaction"), async ({ request }) => {
     await delayWrite();
+    const tid = new URL(request.url).searchParams.get("id");
+    if (tid) deleteStockTransactionRowById(tid);
     return HttpResponse.json({ status: "success", message: "Deleted" });
   }),
 
-  http.delete("*/stock_management/delete_stock/:stockId", async ({ params }) => {
-    await delayWrite();
-    deleteStockById(params.stockId);
-    return HttpResponse.json({ status: "success", message: "Stock deleted" });
-  }),
+  http.delete(
+    pathRegex(/^\/stock_management\/delete_stock\/[^/]+$/),
+    async ({ request }) => {
+      await delayWrite();
+      const stockId = new URL(request.url).pathname.split("/").pop();
+      deleteStockById(stockId);
+      return HttpResponse.json({ status: "success", message: "Stock deleted" });
+    }
+  ),
 ];

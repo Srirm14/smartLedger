@@ -201,10 +201,11 @@ function nextProductId() {
 
 export function applyProductAdd(body) {
   const id = body.id ?? nextProductId();
+  const price = Number(body.price);
   const row = {
     id,
     product: body.product ?? body.name ?? `SKU-${String(id).padStart(3, "0")} New`,
-    price: Number(body.price) || 1,
+    price: Number.isFinite(price) ? price : 1,
     category: body.category ?? "Fuel",
     uom: body.uom ?? "L",
     discontinued: Boolean(body.discontinued),
@@ -219,9 +220,24 @@ export function applyProductAdd(body) {
 export function applyProductUpdate(body) {
   const id = body.id ?? body.product_id;
   if (id == null) return;
+  const patch = { ...body };
+  if (body.name != null) patch.product = body.name;
+  if ("name" in patch) delete patch.name;
+  if (patch.price != null) {
+    const p = Number(patch.price);
+    patch.price = Number.isFinite(p) ? p : patch.price;
+  }
+  if (patch.discontinued != null) patch.discontinued = Boolean(patch.discontinued);
   forEachProductDate((prods) => {
-    if (prods[String(id)]) {
-      prods[String(id)] = { ...prods[String(id)], ...body, id: Number(id) };
+    const key = String(id);
+    if (prods[key]) {
+      const cur = prods[key];
+      prods[key] = {
+        ...cur,
+        ...patch,
+        id: Number(id),
+        product: patch.product ?? cur.product,
+      };
     }
   });
 }
@@ -361,6 +377,97 @@ export function updateStock(body) {
 export function deleteStockById(stockId) {
   const idx = db.stockItems.findIndex((s) => String(s.id) === String(stockId));
   if (idx >= 0) db.stockItems.splice(idx, 1);
+  const k = String(stockId);
+  if (db.stockTransactionHistoryByStockId?.[k]) delete db.stockTransactionHistoryByStockId[k];
+  if (db.stockMeterHistoryByStockId?.[k]) delete db.stockMeterHistoryByStockId[k];
+  if (db.stockLinkedUnitsByStockId?.[k]) delete db.stockLinkedUnitsByStockId[k];
+}
+
+export function updateStockAlert(body) {
+  const id = body.id;
+  const idx = db.stockItems.findIndex((s) => String(s.id) === String(id));
+  if (idx < 0) return;
+  const cur = db.stockItems[idx];
+  const enabled = body.status ?? body.alert_enabled;
+  db.stockItems[idx] = {
+    ...cur,
+    alert_enabled: typeof enabled === "boolean" ? enabled : cur.alert_enabled,
+    low_stock_limit:
+      body.low_stock_limit != null ? Number(body.low_stock_limit) : cur.low_stock_limit,
+  };
+}
+
+export function appendStockTransaction(body) {
+  const stockId = body.stock_id ?? body.stockId;
+  if (stockId == null) return;
+  const k = String(stockId);
+  if (!db.stockTransactionHistoryByStockId[k]) db.stockTransactionHistoryByStockId[k] = {};
+  const bucket = db.stockTransactionHistoryByStockId[k];
+  const next = nextNumericKey(bucket);
+  bucket[String(next)] = {
+    transaction_id: body.transaction_id ?? next,
+    date: body.date ?? todayISO(),
+    transaction_type: body.transaction_type ?? body.type ?? "inbound",
+    quantity: Number(body.quantity) || 0,
+    amount: Number(body.amount) || 0,
+    reference_no: body.reference_no ?? `REF-${next}`,
+    notes: body.notes ?? "",
+  };
+}
+
+function findTxKey(bucket, tid) {
+  return Object.keys(bucket).find(
+    (x) =>
+      String(bucket[x].transaction_id) === String(tid) ||
+      String(bucket[x].reference_no) === String(tid)
+  );
+}
+
+export function updateStockTransactionRow(body) {
+  const stockId = body.stock_id ?? body.stockId;
+  const tid = body.transaction_id ?? body.id;
+  if (stockId == null || tid == null) return;
+  const k = String(stockId);
+  const bucket = db.stockTransactionHistoryByStockId[k];
+  if (!bucket) return;
+  const key = findTxKey(bucket, tid);
+  if (key) {
+    bucket[key] = { ...bucket[key], ...body, transaction_id: bucket[key].transaction_id };
+  }
+}
+
+/** DELETE only sends `id` query — scan all stock buckets */
+export function deleteStockTransactionRowById(tid) {
+  for (const stockId of Object.keys(db.stockTransactionHistoryByStockId || {})) {
+    const bucket = db.stockTransactionHistoryByStockId[stockId];
+    const key = findTxKey(bucket, tid);
+    if (key) {
+      delete bucket[key];
+      return true;
+    }
+  }
+  return false;
+}
+
+export function linkSalesUnitToStock(body) {
+  const sid = String(body.stock_id ?? "");
+  if (!sid) return;
+  if (!db.stockLinkedUnitsByStockId[sid]) db.stockLinkedUnitsByStockId[sid] = [];
+  const nextId = nextIdFromArray(db.stockLinkedUnitsByStockId[sid]);
+  db.stockLinkedUnitsByStockId[sid].push({
+    id: body.sales_unit_id ?? nextId,
+    sales_unit_name: body.sales_unit_name ?? body.name ?? `Unit-${nextId}`,
+    quantity: Number(body.quantity) || 0,
+  });
+}
+
+export function unlinkSalesUnitFromStock(body) {
+  const sid = String(body.stock_id ?? "");
+  const unitId = body.sales_unit_id ?? body.id;
+  const arr = db.stockLinkedUnitsByStockId[sid];
+  if (!arr || unitId == null) return;
+  const idx = arr.findIndex((u) => String(u.id) === String(unitId));
+  if (idx >= 0) arr.splice(idx, 1);
 }
 
 /** --- Employees --- */

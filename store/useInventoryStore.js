@@ -8,6 +8,10 @@ import {
   updateProductStatus
 } from "../src/services/apiService";
 import { toast } from "react-hot-toast";
+import {
+  normalizeInventoryResponse,
+  sortInventoryByNewestFirst,
+} from "../src/lib/inventorySort";
 
 const useInventoryStore = create((set) => ({
   inventoryProducts: [],
@@ -21,16 +25,10 @@ const useInventoryStore = create((set) => ({
     try {
       const response = await getInventory(date);
       if (response && typeof response === "object") {
-        const products = Object.values(response).map((item) => ({
-          id: item.id,
-          product: item.product,
-          category: item.category,
-          price: item.price,
-          uom: item.uom,
-          discontinued: item.discontinued,
-          createdAt: item.created_at,
-        }));
-        set({ inventoryProducts: products, errorState: null });
+        set({
+          inventoryProducts: normalizeInventoryResponse(response),
+          errorState: null,
+        });
       }
     } catch (error) {
       const errorMessage = error.response?.data?.detail || error.message || "Failed to fetch inventory products";
@@ -45,8 +43,20 @@ const useInventoryStore = create((set) => ({
     set({ loading: true, errorState: null });
     try {
       const response = await addInventoryProduct(newProduct);
+      const row = {
+        id: response?.id,
+        product: newProduct.product,
+        category: newProduct.category,
+        price: newProduct.price,
+        uom: newProduct.uom,
+        discontinued: false,
+        createdAt: new Date().toISOString(),
+      };
       set((state) => ({
-        inventoryProducts: [...state.inventoryProducts, newProduct],
+        inventoryProducts: sortInventoryByNewestFirst([
+          ...state.inventoryProducts,
+          row,
+        ]),
         loading: false,
         errorState: null,
       }));
@@ -73,10 +83,12 @@ const useInventoryStore = create((set) => ({
       };
       const response = await updateInventoryPrice(updatedProductPrice);
       set((state) => ({
-        inventoryProducts: state.inventoryProducts.map((item) =>
-          item.id === productDetails.id
-            ? { ...item, price: productDetails.price }
-            : item
+        inventoryProducts: sortInventoryByNewestFirst(
+          state.inventoryProducts.map((item) =>
+            item.id === productDetails.id
+              ? { ...item, price: productDetails.price }
+              : item
+          )
         ),
         errorState: null,
       }));
@@ -122,7 +134,14 @@ const useInventoryStore = create((set) => ({
     //Update Product Status
   updateProductStatus: async (id, isDiscontinued) => {
     await updateProductStatus(id, isDiscontinued);
-},
+    set((state) => ({
+      inventoryProducts: sortInventoryByNewestFirst(
+        state.inventoryProducts.map((item) =>
+          item.id === id ? { ...item, discontinued: isDiscontinued } : item
+        )
+      ),
+    }));
+  },
    // Get linked portfolio details
   getLinkedPortfolio: async (id) => {
     set({ linkedPortfolioLoading: true }); // Set loading to true before fetching

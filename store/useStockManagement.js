@@ -23,9 +23,12 @@ export const useStockManagementStore = create((set, get) => ({
       set({ loading: true, error: null });
       const response = await getAllInventory();
       const list = Array.isArray(response) ? response : response?.data ?? [];
+      const sorted = [...list].sort(
+        (a, b) => (Number(b.id) || 0) - (Number(a.id) || 0)
+      );
       set({
-        stockItems: list,
-        totalItems: list.length,
+        stockItems: sorted,
+        totalItems: sorted.length,
         loading: false
       });
     } catch (error) {
