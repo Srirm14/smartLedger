@@ -21,9 +21,11 @@ const useBankAccountStore = create((set, get) => ({
     set({ isLoading: true });
     try {
       const response = await getBankAccountDetails();
-      // Transform bank account data
-      const accountsArray = Object.values(response).map((account) => ({
-        id: Number(account.id), 
+      const list = Array.isArray(response)
+        ? response
+        : Object.values(response ?? {});
+      const accountsArray = list.map((account) => ({
+        id: Number(account.id),
         bankName: account.bank_name,
       }));
       set({ bankAccounts: accountsArray, isLoading: false });
@@ -41,14 +43,15 @@ const useBankAccountStore = create((set, get) => ({
       const response = await getModes();
       const modesByAccount = {};
 
-      // Group modes by account_id
-      Object.values(response).forEach((mode) => {
-        const accountId = mode.account_id;
+      // Group by bank account (API may use account_id or associated_account)
+      Object.values(response ?? {}).forEach((mode) => {
+        const accountId = mode.account_id ?? mode.associated_account;
+        if (accountId == null) return;
         if (!modesByAccount[accountId]) {
           modesByAccount[accountId] = [];
         }
         modesByAccount[accountId].push({
-          id: mode.mode_id,
+          id: mode.mode_id ?? mode.id,
           name: mode.mode_name,
         });
       });
@@ -90,7 +93,9 @@ const useBankAccountStore = create((set, get) => ({
 
   getModeList: async () => {
     const response = await getModeList();
-    const modeArray = Object.values(response);
+    const modeArray = Array.isArray(response)
+      ? response
+      : Object.values(response ?? {});
     set({ modeList: modeArray });
   },
 

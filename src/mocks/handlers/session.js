@@ -18,12 +18,15 @@ export const sessionHandlers = [
   http.get(/.*\/user\/?$/, async () => {
     await delayGet();
     const base = db.user ?? {};
+    const orgName =
+      db.organisation?.name ?? DEMO_ORGANISATION_NAME;
     return HttpResponse.json({
       ...base,
       email: base.email ?? DEMO_USER_EMAIL,
       username: base.username ?? "demo",
       name: base.name ?? DEMO_USER_NAME,
       organisation_id: base.organisation_id ?? 1,
+      organisation: orgName,
     });
   }),
 ];

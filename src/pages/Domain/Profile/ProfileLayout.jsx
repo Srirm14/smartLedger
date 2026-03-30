@@ -29,8 +29,13 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (userDetails) {
+      const orgRaw = userDetails.organisation;
+      const organizationName =
+        typeof orgRaw === "string"
+          ? orgRaw
+          : orgRaw?.name ?? userDetails.organisation_name ?? "";
       setProfileData({
-        organization: userDetails.organisation || "N/A",
+        organization: organizationName || "N/A",
         role: "Admin",
         email: userDetails.email || "N/A",
       });

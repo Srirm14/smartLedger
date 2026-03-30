@@ -603,6 +603,9 @@ export function addBankAccount(body) {
 export function deleteBankAccountById(id) {
   const idx = db.bankAccounts.findIndex((b) => String(b.id) === String(id));
   if (idx >= 0) db.bankAccounts.splice(idx, 1);
+  db.modes = (db.modes || []).filter(
+    (m) => String(m.associated_account) !== String(id)
+  );
 }
 
 export function addMode(body) {
