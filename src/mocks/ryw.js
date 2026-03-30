@@ -353,12 +353,16 @@ export function addStock(body) {
   const id =
     body.id ??
     Math.max(0, ...db.stockItems.map((s) => Number(s.id) || 0)) + 1;
+  const qty =
+    Number(body.stock ?? body.quantity ?? body.total_stock) ||
+    0;
   const row = {
     id,
     stock_name: body.stock_name ?? `Tank ${id}`,
     product_name: body.product_name ?? body.name ?? `Product ${id}`,
     name: body.name ?? `Stock ${id}`,
-    quantity: body.quantity ?? 0,
+    quantity: qty,
+    total_stock: body.total_stock != null ? Number(body.total_stock) : qty,
     low_stock_limit: body.low_stock_limit ?? 20,
     alert_enabled: Boolean(body.alert_enabled),
     uom: body.uom ?? "L",
@@ -371,7 +375,18 @@ export function addStock(body) {
 
 export function updateStock(body) {
   const idx = db.stockItems.findIndex((s) => String(s.id) === String(body.id));
-  if (idx >= 0) db.stockItems[idx] = { ...db.stockItems[idx], ...body };
+  if (idx < 0) return;
+  const cur = db.stockItems[idx];
+  const next = { ...cur, ...body };
+  let qty;
+  if (body.stock != null) qty = Number(body.stock);
+  else if (body.quantity != null) qty = Number(body.quantity);
+  else if (body.total_stock != null) qty = Number(body.total_stock);
+  if (qty !== undefined && Number.isFinite(qty)) {
+    next.quantity = qty;
+    next.total_stock = qty;
+  }
+  db.stockItems[idx] = next;
 }
 
 export function deleteStockById(stockId) {

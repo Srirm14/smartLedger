@@ -303,12 +303,14 @@ export function createSeedState() {
   }
 
   for (let i = 1; i <= 20; i++) {
+    const qty = 100 + i * 3;
     state.stockItems.push({
       id: i,
       stock_name: `Storage Tank ${i}`,
       product_name: `SKU-${String(i).padStart(3, "0")} Premium`,
       name: `Stock Item ${i}`,
-      quantity: 100 + i * 3,
+      quantity: qty,
+      total_stock: qty,
       low_stock_limit: 20,
       alert_enabled: i % 4 === 0,
       uom: i % 2 === 0 ? "L" : "Gal",
