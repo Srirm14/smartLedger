@@ -212,8 +212,21 @@ export const reportHandlers = [
       const url = new URL(request.url);
       const dateRaw = url.searchParams.get("date") || "";
       const dateStr = dateRaw || todayISO();
-      const shiftId = url.searchParams.get("shift_id");
-      const portfolioId = url.searchParams.get("portfolio_id");
+      let portfolioId = url.searchParams.get("portfolio_id");
+      let shiftId = url.searchParams.get("shift_id");
+      /**
+       * `cashflow_integration_service.getPortfolioCashflow` sends only `shift_id` in the query
+       * and passes portfolio id in that param (client naming). Resolve real shift from config.
+       */
+      if (!portfolioId && shiftId) {
+        portfolioId = shiftId;
+        const row = Object.values(db.shiftConfigRows || {}).find(
+          (r) => String(r.portfolio_id) === String(portfolioId)
+        );
+        shiftId = row ? String(row.shift_id) : String(shiftId);
+      }
+      if (!portfolioId) portfolioId = "1";
+      if (!shiftId) shiftId = "1";
       const key = cfKey(portfolioId, shiftId, dateStr);
       let cfBucket = db.cashflowByKey[key];
       if (!cfBucket || Object.keys(cfBucket).length === 0) {

@@ -93,7 +93,7 @@ function buildCustomers() {
 
 function buildEmployees() {
   const roles = ["Manager", "Cashier", "Operator", "Supervisor"];
-  return Array.from({ length: 18 }, (_, i) => ({
+  return Array.from({ length: 20 }, (_, i) => ({
     id: i + 1,
     name: `Employee ${i + 1}`,
     role: roles[i % roles.length],
@@ -242,10 +242,10 @@ function buildGlobalEntries(today) {
   const categories = ["Rent", "Utilities", "Payroll", "Insurance", "Marketing", "Supplies"];
   const modes = ["Cash", "Card", "Transfer"];
   const out = {};
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 20; i++) {
     const id = 500 + i;
     const day = 30 - (i % 14);
-    const ds = `2026-03-${String(Math.max(1, day)).padStart(2, "0")}`;
+    const ds = i === 19 ? today : `2026-03-${String(Math.max(1, day)).padStart(2, "0")}`;
     out[String(id)] = {
       id,
       date: ds,
@@ -256,15 +256,6 @@ function buildGlobalEntries(today) {
       description: `${categories[i % categories.length]} — global entry ${i + 1}`,
     };
   }
-  out["516"] = {
-    id: 516,
-    date: today,
-    type: "expense",
-    amount: 1750,
-    mode: "Cash",
-    category: "Supplies",
-    description: "Same-day global expense",
-  };
   return out;
 }
 
@@ -339,6 +330,12 @@ export function createSeedState() {
     globalExpense: {
       1: { id: 1, name: "Rent", amount: 2000 },
       2: { id: 2, name: "Utilities", amount: 450 },
+      3: { id: 3, name: "Insurance", amount: 890 },
+      4: { id: 4, name: "Marketing", amount: 1200 },
+      5: { id: 5, name: "Equipment lease", amount: 3100 },
+      6: { id: 6, name: "Compliance", amount: 640 },
+      7: { id: 7, name: "Waste disposal", amount: 220 },
+      8: { id: 8, name: "Security", amount: 1800 },
     },
     allCashflow: [],
     stockItems: [],
@@ -393,10 +390,10 @@ export function createSeedState() {
     });
   }
 
-  for (let cid = 1; cid <= 10; cid++) {
+  for (let cid = 1; cid <= 20; cid++) {
     state.transactionsByCustomer[cid] = [
-      { id: cid * 10 + 1, amount: 120, date: today, type: "payment" },
-      { id: cid * 10 + 2, amount: 80, date: today, type: "charge" },
+      { id: cid * 10 + 1, amount: 120 + cid * 3, date: today, type: "payment" },
+      { id: cid * 10 + 2, amount: 80 + cid * 2, date: today, type: "charge" },
     ];
   }
 
