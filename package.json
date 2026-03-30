@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/ensure-rollup-linux-native.cjs",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -86,6 +87,9 @@
     "sass": "^1.89.0",
     "sass-embedded": "^1.89.2",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": "20.x"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.60.1",

@@ -1,4 +1,5 @@
 {
   "installCommand": "npm ci && node scripts/ensure-rollup-linux-native.cjs",
+  "buildCommand": "npm run build",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
