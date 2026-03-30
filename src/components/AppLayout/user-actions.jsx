@@ -15,6 +15,7 @@ import { useAuthStore } from "../../../store/useAuthStore";
 import { useNavigate } from "react-router-dom";
 import { getOrganisationName } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DEMO_ORGANISATION_NAME } from "@/mocks/demo";
 
 export function UserActions({ user, isCollapsed }) {
   const { logoutAction } = useAuthStore();
@@ -25,9 +26,19 @@ export function UserActions({ user, isCollapsed }) {
   useEffect(() => {
     getOrganisationName()
       .then((res) => {
-        setOrganization(res.organisation);
+        const name =
+          typeof res?.organisation === "string"
+            ? res.organisation
+            : res?.organisation?.name ?? res?.name ?? "";
+        setOrganization(name);
       })
-      .catch(() => setOrganization("N/A"))
+      .catch(() =>
+        setOrganization(
+          import.meta.env.VITE_APP_MOCK === "true"
+            ? DEMO_ORGANISATION_NAME
+            : "N/A"
+        )
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -44,7 +55,7 @@ export function UserActions({ user, isCollapsed }) {
   }, [logoutAction]);
 
   const org = {
-    name: organization,
+    name: organization || "Organisation",
     email: "nandakishore@gmail.com",
     avatar: "/placeholder-avatar.jpg",
   };
@@ -75,7 +86,9 @@ export function UserActions({ user, isCollapsed }) {
             <Button variant="ghost" className="h-8 w-8 p-0">
               <Avatar className="h-8 w-8 text-secondary-600">
                 <AvatarImage src={org.avatar} alt={org.name} />
-                <AvatarFallback  className="text-[var(--secondary-400)] dark:text-[var(--secondary-400)]">{org.name.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="text-[var(--secondary-400)] dark:text-[var(--secondary-400)]">
+                  {(org.name || "?").charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
@@ -92,7 +105,7 @@ export function UserActions({ user, isCollapsed }) {
       <Avatar className="h-8 w-8">
         <AvatarImage src={org.avatar} alt={org.name} />
         <AvatarFallback className="text-[var(--secondary-400)] dark:text-[var(--secondary-400)]">
-          {org.name.charAt(0).toUpperCase()}
+          {(org.name || "?").charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1">
@@ -100,7 +113,7 @@ export function UserActions({ user, isCollapsed }) {
           <Skeleton className="h-4 w-24 bg-[var(--neutral-gray200)] dark:bg-[var(--neutral-gray700)]" />
         ) : (
           <h2 className="text-sm font-medium text-[var(--neutral-gray900)] dark:text-[var(--neutral-gray100)] transition-all">
-            {org.name.replace(/\b\w/g, (char) => char.toUpperCase())}
+            {(org.name || "").replace(/\b\w/g, (char) => char.toUpperCase())}
           </h2>
         )}
       </div>

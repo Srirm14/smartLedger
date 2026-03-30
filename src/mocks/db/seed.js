@@ -2,6 +2,8 @@
  * In-memory mock DB — mutated by MSW handlers. Reset on full page reload.
  */
 
+import { DEMO_ORGANISATION_NAME, DEMO_USER_EMAIL, DEMO_USER_NAME } from "../demo.js";
+
 const portfolioNames = [
   "North Island",
   "South Pier",
@@ -69,9 +71,11 @@ function buildPortfolio() {
 function buildCustomers() {
   const customers = {};
   for (let i = 1; i <= 20; i++) {
+    const nm = `Customer ${i} Ltd`;
     customers[i] = {
       id: i,
-      name: `Customer ${i} Ltd`,
+      name: nm,
+      customer_name: nm,
       email: `fleet${i}@example.com`,
       contact_phone: `+1555000${String(i).padStart(4, "0")}`,
       credit_limit: 5000 + i * 250,
@@ -148,20 +152,81 @@ function buildCashflowEntries(shiftId, portfolioId, date) {
   return entries;
 }
 
-function buildCreditPage(customers) {
-  const items = [];
+function buildCreditRows(customers, portfolioRows) {
+  const today = new Date().toISOString().split("T")[0];
+  const plist = Object.values(portfolioRows);
+  const data = {};
   for (let i = 1; i <= 20; i++) {
     const c = customers[(i % 20) + 1];
-    items.push({
+    const pr = plist[i % plist.length];
+    const p1 = 10 + i * 0.5;
+    const p2 = 12 + i * 0.25;
+    const q1 = 2 + (i % 4);
+    const q2 = 1 + (i % 3);
+    const a1 = p1 * q1;
+    const a2 = p2 * q2;
+    data[String(i)] = {
       id: i,
+      date: today,
       customer_id: c.id,
-      customer_name: c.name,
-      amount: 100 + i * 25,
-      due_date: "2026-04-15",
-      status: i % 4 === 0 ? "overdue" : "open",
+      customer_name: c.customer_name,
+      vehicle_no: `VH-${1000 + i}`,
+      portfolio_name: pr.portfolio_name,
+      shift_name: pr.shift_name,
+      shift_id: pr.shift_id,
+      product_name: [`SKU-${String(i).padStart(3, "0")} Premium`, `SKU-${String((i % 20) + 1).padStart(3, "0")} Plus`],
+      price: [p1, p2],
+      quantity: [q1, q2],
+      uom: ["L", "L"],
+      amount: [a1, a2],
+      total_amount: a1 + a2,
+    };
+  }
+  return {
+    data,
+    total_count: 20,
+    page: 1,
+    page_size: 20,
+  };
+}
+
+function buildVehiclesGroupedByCustomer(vehicles) {
+  const data = {};
+  for (const v of vehicles) {
+    const k = String(v.customer_id);
+    if (!data[k]) data[k] = [];
+    data[k].push({
+      ...v,
+      vehicle_no: v.vehicle_number,
     });
   }
-  return { data: items, total: 200, page: 1, page_size: 20 };
+  return data;
+}
+
+function buildShiftConfigRows() {
+  const out = {};
+  let id = 1;
+  for (let pi = 0; pi < portfolioNames.length; pi++) {
+    const pname = portfolioNames[pi];
+    for (const shift of shifts) {
+      out[String(id)] = {
+        portfolio: pi + 1,
+        portfolio_id: pi + 1,
+        portfolio_name: pname,
+        shift_id: id,
+        shift_name: shift,
+        shift_start_time: "06:00",
+        shift_end_time: "14:00",
+        start_date: "2024-01-01",
+        end_date: "9999-12-31",
+        shift_start_timestamp: null,
+        active: true,
+        day_span: 1,
+      };
+      id++;
+    }
+  }
+  return out;
 }
 
 export function createSeedState() {
@@ -180,7 +245,9 @@ export function createSeedState() {
     customers,
     vehicles,
     employees,
-    creditRecords: buildCreditPage(customers),
+    creditRecords: buildCreditRows(customers, portfolio),
+    vehiclesGrouped: buildVehiclesGroupedByCustomer(vehicles),
+    shiftConfigRows: buildShiftConfigRows(),
     bankAccounts: [
       { id: 1, bank_name: "Demo National Bank" },
       { id: 2, bank_name: "Harbor Credit Union" },
@@ -196,11 +263,12 @@ export function createSeedState() {
       label: `MR-${i + 1}`,
       value: 1000 + i * 50,
     })),
-    organisation: { name: "Demo Fuel Co-op", id: 1 },
+    organisation: { name: DEMO_ORGANISATION_NAME, id: 1 },
     user: {
       id: 1,
-      email: "test",
-      username: "test",
+      email: DEMO_USER_EMAIL,
+      username: "demo",
+      name: DEMO_USER_NAME,
       organisation_id: 1,
     },
     globalExpense: {
@@ -234,10 +302,15 @@ export function createSeedState() {
   for (let i = 1; i <= 20; i++) {
     state.stockItems.push({
       id: i,
+      stock_name: `Storage Tank ${i}`,
+      product_name: `SKU-${String(i).padStart(3, "0")} Premium`,
       name: `Stock Item ${i}`,
       quantity: 100 + i * 3,
       low_stock_limit: 20,
       alert_enabled: i % 4 === 0,
+      uom: i % 2 === 0 ? "L" : "Gal",
+      type: "Bulk",
+      capacity: 8000 + i * 200,
     });
   }
 

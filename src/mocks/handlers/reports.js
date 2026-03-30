@@ -43,17 +43,49 @@ function productWiseIncome() {
   }));
 }
 
-function categoryExpense() {
-  return ["Rent", "Utilities", "Payroll", "Maintenance", "Supplies"].map(
-    (cat, i) => ({
-      category: cat,
-      amount: 400 + i * 150,
-      portfolio_breakdown: portfolioNames.reduce((acc, n, j) => {
-        acc[n] = 50 + i * 10 + j * 5;
-        return acc;
-      }, {}),
-    })
-  );
+/** useGlobalCashflowStore: ExpenseCashflow[name][category] = amount */
+function categoryExpenseByPortfolio() {
+  const out = {};
+  portfolioNames.forEach((name, pi) => {
+    out[name] = {
+      Rent: 400 + pi * 40,
+      Utilities: 220 + pi * 25,
+      Payroll: 650 + pi * 35,
+      Maintenance: 180 + pi * 15,
+    };
+  });
+  return out;
+}
+
+/** useIntegratedCashflowStore.fetchCashflowSummary — CashflowSummaryCard */
+function cashflowSummaryForDate() {
+  const portfolio_breakdown = {};
+  portfolioNames.forEach((name, i) => {
+    portfolio_breakdown[name] = {
+      net: 3500 + i * 400,
+      credit: 200 + i * 30,
+    };
+  });
+  return {
+    income: {
+      total_income: 28500,
+      meter_sales_income: 17500,
+      stock_sales_income: 11000,
+    },
+    expenses: {
+      total_expenses: 8200,
+      cashflow_expenses: 5100,
+      stock_purchase_expenses: 3100,
+    },
+    credit: {
+      total_credit: 2100,
+    },
+    summary: {
+      net_cashflow: 18200,
+      cash_on_hand: 16100,
+    },
+    portfolio_breakdown,
+  };
 }
 
 export const reportHandlers = [
@@ -74,25 +106,21 @@ export const reportHandlers = [
 
   http.get("*/report/category_wise_expense/get/:date", async () => {
     await delayGet();
-    return HttpResponse.json(categoryExpense());
+    return HttpResponse.json(categoryExpenseByPortfolio());
   }),
 
   http.get("*/report/cashflow_summary/get/:date", async () => {
     await delayGet();
-    return HttpResponse.json({
-      total_income: 22000,
-      total_expense: 7500,
-      net: 14500,
-      by_portfolio: islandWiseIncome(),
-    });
+    return HttpResponse.json(cashflowSummaryForDate());
   }),
 
   http.get("*/report/outbound_stock_summary/get/:date", async ({ request }) => {
     await delayGet();
     const url = new URL(request.url);
     const pid = url.searchParams.get("portfolio_id");
+    // useIntegratedCashflowStore uses response.data as list
     return HttpResponse.json({
-      rows: Array.from({ length: 15 }, (_, i) => ({
+      data: Array.from({ length: 15 }, (_, i) => ({
         id: i + 1,
         portfolio_id: pid ? Number(pid) : 1,
         quantity: 10 + i,
@@ -103,14 +131,68 @@ export const reportHandlers = [
 
   http.get(
     "*/report/integrated_cashflow_report/get/:start/:end",
-    async () => {
+    async ({ params }) => {
       await delayGet();
+      const { start, end } = params;
+      const rows = [];
+      const a = new Date(`${start}T12:00:00`);
+      const b = new Date(`${end}T12:00:00`);
+      if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
+        for (
+          let d = new Date(a);
+          d <= b && rows.length < 45;
+          d.setDate(d.getDate() + 1)
+        ) {
+          const i = rows.length;
+          const ds = d.toISOString().split("T")[0];
+          rows.push({
+            date: ds,
+            meter_sales: 5200 + i * 95,
+            stock_sales: 2100 + i * 40,
+            total_income: 7300 + i * 130,
+            cashflow_expenses: 750 + i * 12,
+            stock_expenses: 420 + i * 8,
+            total_expenses: 1170 + i * 20,
+            credits: 280 + i * 6,
+            net_cashflow: 6130 + i * 110,
+            cash_on_hand: 15000 + i * 180,
+          });
+        }
+      }
+      if (rows.length === 0) {
+        const ds = new Date().toISOString().split("T")[0];
+        rows.push({
+          date: ds,
+          meter_sales: 5000,
+          stock_sales: 2000,
+          total_income: 7000,
+          cashflow_expenses: 700,
+          stock_expenses: 400,
+          total_expenses: 1100,
+          credits: 300,
+          net_cashflow: 5900,
+          cash_on_hand: 14000,
+        });
+      }
+      const keys = [
+        "meter_sales",
+        "stock_sales",
+        "total_income",
+        "cashflow_expenses",
+        "stock_expenses",
+        "total_expenses",
+        "credits",
+        "net_cashflow",
+        "cash_on_hand",
+      ];
+      const totals = keys.reduce((acc, k) => {
+        acc[k] = rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+        return acc;
+      }, {});
       return HttpResponse.json({
-        days: Array.from({ length: 20 }, (_, i) => ({
-          date: `2026-03-${String((i % 28) + 1).padStart(2, "0")}`,
-          income: 1000 + i * 20,
-          expense: 300 + i * 5,
-        })),
+        data: rows,
+        totals,
+        date_range: { start, end },
       });
     }
   ),

@@ -47,7 +47,7 @@ export function SalesProductsTab({ shift }) {
   const [selectedSalesUnit, setSelectedSalesUnit] = useState(null)
 
   // Get state and actions from stores
-  const selectedDate = useGlobalDateStore((state) => state.selectedDate)
+  const islandDate = useGlobalDateStore((state) => state.IslandSelectedDate)
   const { fetchInventoryProducts, inventoryProducts: inventoryProductsList } = useInventoryStore()
   const { setTotalSales } = useCashflowStore()
 
@@ -62,7 +62,7 @@ export function SalesProductsTab({ shift }) {
     upsertMeterReadings,
     deleteSalesUnitMutation,
     updateMeterReadingStatus,
-  } = useSalesTabQuery(shift.portfolio_id, shift.shift_id, selectedDate)
+  } = useSalesTabQuery(shift.portfolio_id, shift.shift_id, islandDate)
 
   // Local component state
   const [currentPage, setCurrentPage] = useState(1)
@@ -348,7 +348,7 @@ export function SalesProductsTab({ shift }) {
         uom: product.uom.trim(),
         sold_quantity: soldQty,
         amount: amount,
-        date: selectedDate,
+        date: islandDate,
       }
     })
 
@@ -413,7 +413,7 @@ export function SalesProductsTab({ shift }) {
     } catch (error) {
       console.error("Error saving sales products:", error)
     }
-  }, [originalData, salesProducts, inventoryProductsList, shift.portfolio_id, shift.shift_id, selectedDate, upsertMeterReadings])
+  }, [originalData, salesProducts, inventoryProductsList, shift.portfolio_id, shift.shift_id, islandDate, upsertMeterReadings])
 
   /**
    * Resets the table data to its original state
@@ -478,8 +478,8 @@ export function SalesProductsTab({ shift }) {
 
   // Fetch inventory products on initial load
   useEffect(() => {
-    fetchInventoryProducts(selectedDate)
-  }, [fetchInventoryProducts, selectedDate])
+    fetchInventoryProducts(islandDate)
+  }, [fetchInventoryProducts, islandDate])
 
   // Transform API data to UI format
   useEffect(() => {

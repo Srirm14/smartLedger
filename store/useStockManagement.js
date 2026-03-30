@@ -22,9 +22,10 @@ export const useStockManagementStore = create((set, get) => ({
     try {
       set({ loading: true, error: null });
       const response = await getAllInventory();
+      const list = Array.isArray(response) ? response : response?.data ?? [];
       set({
-        stockItems: response || [],
-        totalItems: response.data?.length || 0,
+        stockItems: list,
+        totalItems: list.length,
         loading: false
       });
     } catch (error) {

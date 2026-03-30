@@ -1,5 +1,12 @@
 import { authHandlers } from "./auth.js";
-import { domainHandlers } from "./domain.js";
+import { sessionHandlers } from "./session.js";
 import { reportHandlers } from "./reports.js";
+import { domainHandlers } from "./domain.js";
 
-export const handlers = [...authHandlers, ...reportHandlers, ...domainHandlers];
+/** Order: auth → session (org/user) → reports → domain (bulk CRUD). */
+export const handlers = [
+  ...authHandlers,
+  ...sessionHandlers,
+  ...reportHandlers,
+  ...domainHandlers,
+];
