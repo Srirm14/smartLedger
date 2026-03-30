@@ -61,6 +61,43 @@ const portfolioNames = [
 
 const today = todayISO;
 
+/**
+ * Unique island names from the current portfolio snapshot (matches island mocks).
+ */
+function uniquePortfolioNamesFromDb() {
+  const d = today();
+  let snap = db.portfolioByDate?.[d];
+  if (!snap || !Object.keys(snap).length) {
+    const keys = Object.keys(db.portfolioByDate || {});
+    const key =
+      keys.find((k) => Object.keys(db.portfolioByDate[k] || {}).length) ||
+      keys[0];
+    snap = key ? db.portfolioByDate[key] : {};
+  }
+  const names = new Set();
+  for (const row of Object.values(snap)) {
+    if (row?.portfolio_name) names.add(row.portfolio_name);
+  }
+  const list = [...names];
+  return list.length ? list : [...portfolioNames];
+}
+
+/**
+ * API shape expected by useInventoryStore: keyed object with { portfolio_name } per entry.
+ */
+function linkedPortfoliosForProductId(productId) {
+  const names = uniquePortfolioNamesFromDb();
+  const pid = Math.max(1, Number(productId) || 1);
+  const n = names.length;
+  const idxs = [pid % n, (pid + 2) % n, (pid + 4) % n];
+  const picked = [...new Set(idxs.map((i) => names[i]))].slice(0, 3);
+  const out = {};
+  picked.forEach((portfolio_name, i) => {
+    out[String(i)] = { portfolio_name };
+  });
+  return out;
+}
+
 function stockRowById(id) {
   const row = db.stockItems.find((s) => String(s.id) === String(id));
   return row || db.stockItems[0];
@@ -315,9 +352,9 @@ export const domainHandlers = [
     return HttpResponse.json({ ok: true });
   }),
 
-  http.get("*/product/get_linked_portfolio/:id", async () => {
+  http.get("*/product/get_linked_portfolio/:id", async ({ params }) => {
     await delayGet();
-    return HttpResponse.json({ linked: [1, 2, 3] });
+    return HttpResponse.json(linkedPortfoliosForProductId(params.id));
   }),
 
   http.post("*/product/update_product", async ({ request }) => {
