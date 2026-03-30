@@ -21,8 +21,10 @@ const useEmployeeStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await getEmployeesApi();
+      const list = Array.isArray(data) ? data : [];
+      list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
       set({
-        employees: Array.isArray(data) ? data : [],
+        employees: list,
       });
     } catch (error) {
       set({ error: error.message });
@@ -53,9 +55,11 @@ const useEmployeeStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await createEmployeeApi(employeeData);
-      set((state) => ({
-        employees: [...state.employees, { ...employeeData, id: response.id }],
-      }));
+      set((state) => {
+        const merged = [...state.employees, response];
+        merged.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+        return { employees: merged };
+      });
       return response;
     } catch (error) {
       set({ error: error.message });
@@ -79,9 +83,10 @@ const useEmployeeStore = create((set, get) => ({
         employees: state.employees.map((emp) =>
           emp.id === employeeData.id ? updatedEmployee : emp
         ),
-        currentEmployee: state.currentEmployee?.id === employeeData.id 
-          ? updatedEmployee
-          : state.currentEmployee
+        currentEmployee:
+          String(state.currentEmployee?.id) === String(employeeData.id)
+            ? updatedEmployee
+            : state.currentEmployee
       }));
       
       // Refresh the full employee list
@@ -103,10 +108,13 @@ const useEmployeeStore = create((set, get) => ({
     try {
       await deleteEmployeeApi(id);
       set((state) => ({
-        employees: state.employees.filter((emp) => emp.id !== id),
-        currentEmployee: state.currentEmployee?.id === id 
-          ? null 
-          : state.currentEmployee
+        employees: state.employees.filter(
+          (emp) => String(emp.id) !== String(id)
+        ),
+        currentEmployee:
+          String(state.currentEmployee?.id) === String(id)
+            ? null
+            : state.currentEmployee
       }));
     } catch (error) {
       set({ error: error.message });

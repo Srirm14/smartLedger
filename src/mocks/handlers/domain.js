@@ -37,6 +37,9 @@ import {
   linkSalesUnitToStock,
   unlinkSalesUnitFromStock,
   deleteEmployeeById,
+  applyEmployeeCreate,
+  applyEmployeeUpdate,
+  getEmployeesSortedNewestFirst,
   applyPortfolioAdd,
   applyPortfolioUpdate,
   deletePortfolioByPortfolioId,
@@ -167,39 +170,45 @@ function resolveProductsSnapshot(date) {
 }
 
 export const domainHandlers = [
-  http.get("*/employees/get_all", async () => {
+  http.get(pathIs("/employees/get_all"), async () => {
     await delayGet();
-    return HttpResponse.json(db.employees);
+    return HttpResponse.json(getEmployeesSortedNewestFirst());
   }),
 
-  http.get("*/employees/:id", async ({ params }) => {
-    await delayGet();
-    const row = db.employees.find((e) => String(e.id) === String(params.id));
-    return HttpResponse.json(row || {});
-  }),
-
-  http.post("*/employees/create", async ({ request }) => {
+  http.post(pathIs("/employees/create"), async ({ request }) => {
     await delayWrite();
-    const body = await request.json();
-    const id = db.employees.length + 1;
-    const row = { id, ...body };
-    db.employees.push(row);
+    const body = await parseJson(request);
+    const row = applyEmployeeCreate(body);
     return HttpResponse.json(row);
   }),
 
-  http.put("*/employees/update", async ({ request }) => {
+  http.put(pathIs("/employees/update"), async ({ request }) => {
     await delayWrite();
-    const body = await request.json();
-    const idx = db.employees.findIndex((e) => e.id === body.id);
-    if (idx >= 0) db.employees[idx] = { ...db.employees[idx], ...body };
+    const body = await parseJson(request);
+    applyEmployeeUpdate(body);
     return HttpResponse.json({ ok: true });
   }),
 
-  http.delete("*/employees/delete/:id", async ({ params }) => {
-    await delayWrite();
-    deleteEmployeeById(params.id);
-    return HttpResponse.json({ ok: true });
-  }),
+  http.delete(
+    pathRegex(/^\/employees\/delete\/[^/]+$/),
+    async ({ request }) => {
+      await delayWrite();
+      const id = new URL(request.url).pathname.split("/").pop();
+      deleteEmployeeById(id);
+      return HttpResponse.json({ ok: true });
+    }
+  ),
+
+  http.get(
+    ({ request }) =>
+      /^\/employees\/\d+$/.test(new URL(request.url).pathname),
+    async ({ request }) => {
+      await delayGet();
+      const id = new URL(request.url).pathname.split("/").pop();
+      const row = db.employees.find((e) => String(e.id) === String(id));
+      return HttpResponse.json(row || {});
+    }
+  ),
 
   http.get("*/product/get", async ({ request }) => {
     await delayGet();
@@ -763,11 +772,16 @@ export const domainHandlers = [
     await delayGet();
     const id = new URL(request.url).searchParams.get("id");
     const row = stockRowById(id);
+    const current = Number(row.total_stock ?? row.quantity ?? 0);
     return HttpResponse.json([
       {
         ...row,
+        total_stock: current,
+        quantity: row.quantity ?? current,
         low_stock_alert: row.alert_enabled,
         sales_unit_names: [`Pump-${row.id}-A`, `Pump-${row.id}-B`],
+        availableStocks: current,
+        current_stock: current,
       },
     ]);
   }),
@@ -777,13 +791,15 @@ export const domainHandlers = [
     const url = new URL(request.url);
     const id = url.searchParams.get("id");
     const row = stockRowById(id);
-    const cap = row.capacity || 8000;
-    const level = Math.min(Math.round(cap * 0.42), cap);
+    const cap = Number(row.capacity) || 8000;
+    const level = Number(row.total_stock ?? row.quantity ?? 0);
+    const inbound = Math.round(level * 0.55 + 120);
+    const outbound = Math.round(level * 0.45 + 80);
     return HttpResponse.json({
       stock_level: level,
       capacity: cap,
-      inbound: 140,
-      outbound: 95,
+      inbound,
+      outbound,
     });
   }),
 

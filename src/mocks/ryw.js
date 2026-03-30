@@ -487,6 +487,51 @@ export function unlinkSalesUnitFromStock(body) {
 
 /** --- Employees --- */
 
+export function nextEmployeeId() {
+  const ids = db.employees.map((e) => Number(e.id) || 0);
+  return ids.length ? Math.max(...ids) + 1 : 1;
+}
+
+export function getEmployeesSortedNewestFirst() {
+  return [...db.employees].sort(
+    (a, b) => (Number(b.id) || 0) - (Number(a.id) || 0)
+  );
+}
+
+export function applyEmployeeCreate(body) {
+  const id = body.id ?? nextEmployeeId();
+  const row = {
+    id,
+    name: body.name ?? "New Employee",
+    role: body.role ?? "Operator",
+    contact_number: body.contact_number ?? "",
+    employee_id: body.employee_id ?? `EMP-${id}`,
+    email: body.email ?? `emp${id}@demo.local`,
+    salary: Number(body.salary ?? body.base_salary) || 35000,
+  };
+  db.employees.push(row);
+  return row;
+}
+
+export function applyEmployeeUpdate(body) {
+  const id = Number(body.id);
+  if (Number.isNaN(id)) return;
+  const idx = db.employees.findIndex((e) => Number(e.id) === id);
+  if (idx < 0) return;
+  const cur = db.employees[idx];
+  db.employees[idx] = {
+    ...cur,
+    ...body,
+    id,
+    name: body.name ?? cur.name,
+    role: body.role ?? cur.role,
+    contact_number: body.contact_number ?? cur.contact_number,
+    employee_id: body.employee_id ?? cur.employee_id,
+    email: body.email ?? cur.email,
+    salary: body.salary != null ? Number(body.salary) : cur.salary,
+  };
+}
+
 export function deleteEmployeeById(id) {
   const idx = db.employees.findIndex((e) => String(e.id) === String(id));
   if (idx >= 0) db.employees.splice(idx, 1);
