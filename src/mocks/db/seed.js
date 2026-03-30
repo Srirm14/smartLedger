@@ -1,0 +1,252 @@
+/**
+ * In-memory mock DB — mutated by MSW handlers. Reset on full page reload.
+ */
+
+const portfolioNames = [
+  "North Island",
+  "South Pier",
+  "East Dock",
+  "West Bay",
+  "Central Hub",
+];
+
+const shifts = ["Morning", "Evening", "Night"];
+
+const productCategories = ["Fuel", "Lubricant", "Retail", "Services", "Misc"];
+
+function buildProducts() {
+  const products = {};
+  for (let i = 1; i <= 20; i++) {
+    products[i] = {
+      id: i,
+      product: `SKU-${String(i).padStart(3, "0")} Premium`,
+      price: 2.5 + i * 0.15,
+      uom: i % 3 === 0 ? "Gal" : "L",
+      category: productCategories[i % productCategories.length],
+      discontinued: i % 11 === 0,
+      created_at: new Date(2024, (i % 12) + 1, (i % 28) + 1).toISOString(),
+    };
+  }
+  return products;
+}
+
+function buildPortfolio() {
+  const out = {};
+  let id = 1;
+  for (const name of portfolioNames) {
+    for (const shift of shifts) {
+      out[id] = {
+        id,
+        portfolio_id: portfolioNames.indexOf(name) + 1,
+        portfolio_name: name,
+        shift_name: shift,
+        shift_id: id,
+        total_sales: 5000 + id * 120,
+        total_items: 40 + id * 2,
+        overall_payment_received: 4200 + id * 100,
+        credit: 300 + id * 15,
+      };
+      id++;
+    }
+  }
+  while (id <= 20) {
+    out[id] = {
+      id,
+      portfolio_id: 6,
+      portfolio_name: "Overflow Station",
+      shift_name: `Shift-${id}`,
+      shift_id: id,
+      total_sales: 2000 + id * 50,
+      total_items: 25,
+      overall_payment_received: 1800 + id * 40,
+      credit: 150,
+    };
+    id++;
+  }
+  return out;
+}
+
+function buildCustomers() {
+  const customers = {};
+  for (let i = 1; i <= 20; i++) {
+    customers[i] = {
+      id: i,
+      name: `Customer ${i} Ltd`,
+      email: `fleet${i}@example.com`,
+      contact_phone: `+1555000${String(i).padStart(4, "0")}`,
+      credit_limit: 5000 + i * 250,
+      is_active: i % 7 !== 0,
+      balance: i * 42.5,
+    };
+  }
+  return customers;
+}
+
+function buildEmployees() {
+  const roles = ["Manager", "Cashier", "Operator", "Supervisor"];
+  return Array.from({ length: 18 }, (_, i) => ({
+    id: i + 1,
+    name: `Employee ${i + 1}`,
+    role: roles[i % roles.length],
+    contact_number: `555${String(1000 + i)}`,
+    employee_id: `EMP-${100 + i}`,
+    email: `emp${i + 1}@demo.local`,
+    salary: 35000 + i * 800,
+  }));
+}
+
+function buildVehicles(customers) {
+  const vehicles = [];
+  let vid = 1;
+  for (let cid = 1; cid <= 20; cid++) {
+    for (let v = 0; v < 2; v++) {
+      vehicles.push({
+        id: vid++,
+        customer_id: cid,
+        vehicle_number: `ABC-${1000 + vid}`,
+        type: v ? "Truck" : "Van",
+      });
+    }
+  }
+  return vehicles;
+}
+
+function buildMeterReadings(portfolioRows, date) {
+  const out = {};
+  let id = 1;
+  for (const row of Object.values(portfolioRows)) {
+    out[id] = {
+      id,
+      sales_unit_name: `Pump-${row.shift_id}-${id}`,
+      portfolio_id: row.portfolio_id,
+      shift_id: row.shift_id,
+      meter_reading: 10000 + id * 33,
+      status: id % 5 === 0 ? "Discontinued" : "Active",
+      date,
+      product_id: (id % 20) + 1,
+    };
+    id++;
+    if (id > 22) break;
+  }
+  return out;
+}
+
+function buildCashflowEntries(shiftId, portfolioId, date) {
+  const entries = {};
+  for (let i = 1; i <= 18; i++) {
+    entries[i] = {
+      id: i,
+      shift_id: shiftId,
+      portfolio_id: portfolioId,
+      date,
+      mode: i % 2 ? "Cash" : "Card",
+      amount: 50 + i * 12,
+      description: `Entry ${i}`,
+      type: i % 3 ? "income" : "expense",
+    };
+  }
+  return entries;
+}
+
+function buildCreditPage(customers) {
+  const items = [];
+  for (let i = 1; i <= 20; i++) {
+    const c = customers[(i % 20) + 1];
+    items.push({
+      id: i,
+      customer_id: c.id,
+      customer_name: c.name,
+      amount: 100 + i * 25,
+      due_date: "2026-04-15",
+      status: i % 4 === 0 ? "overdue" : "open",
+    });
+  }
+  return { data: items, total: 200, page: 1, page_size: 20 };
+}
+
+export function createSeedState() {
+  const today = new Date().toISOString().split("T")[0];
+  const products = buildProducts();
+  const portfolio = buildPortfolio();
+  const customers = buildCustomers();
+  const vehicles = buildVehicles(customers);
+  const employees = buildEmployees();
+
+  const state = {
+    productsByDate: {},
+    portfolioByDate: {},
+    meterByKey: {},
+    cashflowByKey: {},
+    customers,
+    vehicles,
+    employees,
+    creditRecords: buildCreditPage(customers),
+    bankAccounts: [
+      { id: 1, bank_name: "Demo National Bank" },
+      { id: 2, bank_name: "Harbor Credit Union" },
+    ],
+    modes: [
+      { id: 1, mode_name: "Cash", associated_account: 1 },
+      { id: 2, mode_name: "Card", associated_account: 1 },
+      { id: 3, mode_name: "Transfer", associated_account: 2 },
+    ],
+    shiftsConfig: {},
+    meterReadingsAll: Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      label: `MR-${i + 1}`,
+      value: 1000 + i * 50,
+    })),
+    organisation: { name: "Demo Fuel Co-op", id: 1 },
+    user: {
+      id: 1,
+      email: "test",
+      username: "test",
+      organisation_id: 1,
+    },
+    globalExpense: {
+      1: { id: 1, name: "Rent", amount: 2000 },
+      2: { id: 2, name: "Utilities", amount: 450 },
+    },
+    allCashflow: [],
+    stockItems: [],
+    transactionsByCustomer: {},
+    tallyCache: {},
+  };
+
+  state.productsByDate[today] = { ...products };
+  state.portfolioByDate[today] = { ...portfolio };
+
+  const p1 = portfolio["1"];
+  const meterKey = `${p1.portfolio_id}_${p1.shift_id}_${today}`;
+  state.meterByKey[meterKey] = buildMeterReadings(portfolio, today);
+  for (const row of Object.values(portfolio).slice(0, 8)) {
+    const k = `${row.portfolio_id}_${row.shift_id}_${today}`;
+    state.meterByKey[k] = buildMeterReadings(portfolio, today);
+    state.cashflowByKey[k] = buildCashflowEntries(row.shift_id, row.portfolio_id, today);
+  }
+
+  for (let d = 1; d <= 15; d++) {
+    const ds = `2026-03-${String(d).padStart(2, "0")}`;
+    state.productsByDate[ds] = { ...products };
+    state.portfolioByDate[ds] = { ...portfolio };
+  }
+
+  for (let i = 1; i <= 20; i++) {
+    state.stockItems.push({
+      id: i,
+      name: `Stock Item ${i}`,
+      quantity: 100 + i * 3,
+      low_stock_limit: 20,
+      alert_enabled: i % 4 === 0,
+    });
+  }
+
+  for (let cid = 1; cid <= 10; cid++) {
+    state.transactionsByCustomer[cid] = [
+      { id: cid * 10 + 1, amount: 120, date: today, type: "payment" },
+      { id: cid * 10 + 2, amount: 80, date: today, type: "charge" },
+    ];
+  }
+
+  return state;
+}

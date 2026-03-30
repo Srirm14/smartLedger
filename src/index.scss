@@ -1,0 +1,766 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Print-specific styles */
+  @media print {
+    body {
+      background-color: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    #tally-page {
+      width: 100%;
+      height: auto;
+      overflow: visible !important;
+      page-break-inside: avoid;
+    }
+
+    .scrollbar-thin {
+      overflow: visible !important;
+      height: auto !important;
+      max-height: none !important;
+    }
+
+    table {
+      page-break-inside: auto;
+    }
+
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    tfoot {
+      display: table-footer-group;
+    }
+
+    /* Hide elements that shouldn't be printed */
+    .back-button,
+    .export-button {
+      display: none !important;
+    }
+
+    /* Ensure proper page breaks */
+    .page-break-after {
+      page-break-after: always;
+    }
+
+    /* Adjust margins for printing */
+    @page {
+      margin: 1cm;
+    }
+  }
+
+  /* Add these styles to your CSS file or use inline styles if necessary */
+// .scrollbar-thin::-webkit-scrollbar {
+//   width: 6px;
+//   height: 4px;
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-thumb {
+//   background-color: #dedede83;
+//   border-radius: 10px;
+//   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-track {
+//   background-color: #ffffff;
+//   border-radius: 10px;
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-corner {
+//   background-color: #ffffff;
+// }
+
+// .scrollbar-thin {
+//   @apply overflow-y-auto;
+// }
+
+// .scrollbar-thin::-webkit-scrollbar {
+//   width: 6px;
+//   height: 4px;
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-thumb {
+//   background-color: #dedede83;
+//   border-radius: 10px;
+//   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-track {
+//   background-color: #ffffff;
+//   border-radius: 10px;
+// }
+
+// .scrollbar-thin::-webkit-scrollbar-corner {
+//   background-color: #ffffff;
+// }
+
+.scrollbar-thin {
+  @apply overflow-y-auto;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: #dedede83;
+  border-radius: 10px;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background-color: #ffffff;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-corner {
+  background-color: #ffffff;
+}
+.scrollbar-none {
+  overflow-y: auto;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+
+
+//animation
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shine {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shine {
+  animation: shine 2s infinite;
+}
+
+  :root {
+    /* Light mode defaults */
+    --background: #F6F7FA;
+    --foreground: #000000;
+    
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    
+    /* Warning Colors - Light Mode */
+    --warning-50: #FFFBEB;
+    --warning-100: #FEF3C7;
+    --warning-200: #FDE68A;
+    --warning-300: #FCD34D;
+    --warning-400: #FBBF24;
+    --warning-500: #F59E0B;
+    --warning-600: #EA580C;
+    --warning-700: #C2410C;
+    --warning-800: #9A3412;
+    --warning-900: #7C2D12;
+
+    /* Primary Colors */
+    --primary-700: #2225ff;
+    --primary-600: #3b3ef9;
+    --primary-500: #3b3ef9;
+    --primary-400: #5D5FEF;
+    --primary-300: #7879F1;
+    --primary-200: #A5A6F6;
+    --primary-100: #EFEFFD;
+  
+    /* Secondary Colors */
+    --secondary-700: #0A0A13; /* placeholder */
+    --secondary-600: #0D0D18;
+    --secondary-500: #121221;
+    --secondary-400: #141423;
+    --secondary-300: #181829;
+    --secondary-200: #1B1B2E;
+    --secondary-100: #202037;
+  
+    /* Success Colors */
+    --success-700: #249e7e; /* placeholder */
+    --success-600: #30B294;
+    --success-500: #39C5A4;
+    --success-400: #46D5B3;
+    --success-300: #64DCBF;
+    --success-200: #98E8D4;
+    --success-100: #ddf7f0;
+  
+    /* Danger Colors */
+    --danger-700: #b00c0c; /* placeholder */
+    --danger-600: #d30f0f;
+    --danger-500: #E63131;
+    --danger-400: #F74040;
+    --danger-300: #FE4D4D;
+    --danger-200: #FF5D5D;
+    --danger-100: #fed9d9;
+  
+    /* Neutral Colors */
+    --neutral-white: #FFFFFF;
+    --neutral-gray50: #F4F4F5;
+    --neutral-gray100: #F5F5F5;
+    --neutral-gray200: #EEEEEE;
+    --neutral-gray300: #E0E0E0;
+    --neutral-gray400: #BDBDBD;
+    --neutral-gray500: #9E9E9E;
+    --neutral-gray600: #757575;
+    --neutral-gray700: #616161;
+    --neutral-gray800: #424242;
+    --neutral-gray900: #212121;
+    --neutral-black: #000000;
+  }
+  
+  .dark {
+    /* Base colors */
+    --background: #0A0A0C;
+    --foreground: #E2E8F0;
+
+    /* Primary Colors - Modern Electric Blue (Re-Inverted) */
+    --primary-100: #E6E8FF;
+    --primary-200: #A3AFFF;
+    --primary-300: #7F8FFF;
+    --primary-400: #5C6FFF;
+    --primary-500: #3B4FFF;
+    --primary-600: #2233FF;
+    --primary-700: #0C1CFA;
+  
+    /* Secondary Colors - Deep Space (Re-Inverted) */
+    --secondary-100: #404056;
+    --secondary-200: #37374A;
+    --secondary-300: #2E2E3E;
+    --secondary-400: #252532;
+    --secondary-500: #1C1C26;
+    --secondary-600: #13131A;
+    --secondary-700: #0A0A0C;
+  
+    /* Success Colors - Neo Mint (Re-Inverted) */
+    --success-100: #91F0DF;
+    --success-200: #54E8CA;
+    --success-300: #17E0B5;
+    --success-400: #13BA97;
+    --success-500: #0F9579;
+    --success-600: #0B6F5C;
+    --success-700: #064A3E;
+  
+    /* Danger Colors - Neon Coral (Re-Inverted) */
+    --danger-100: #FF8C8C;
+    --danger-200: #FF6666;
+    --danger-300: #FF4040;
+    --danger-400: #F51D1D;
+    --danger-500: #CC1616;
+    --danger-600: #A30F0F;
+    --danger-700: #7A0808;
+
+    /* Warning Colors - Cyber Yellow (Re-Inverted) */
+    --warning-100: #FFE099;
+    --warning-200: #FFD066;
+    --warning-300: #FFC033;
+    --warning-400: #FFAD00;
+    --warning-500: #CC8A00;
+    --warning-600: #996A00;
+    --warning-700: #704D00;
+
+    /* Neutral Colors - Space Gray (Re-Inverted) */
+    --neutral-white: #FFFFFF;
+    --neutral-gray50: #F7FAFC;
+    --neutral-gray100: #EDF2F7;
+    --neutral-gray200: #E2E8F0;
+    --neutral-gray300: #808080;
+    --neutral-gray400: #bebebe;
+    --neutral-gray500: #6f6f6f;
+    --neutral-gray600: #565656;
+    --neutral-gray700: #242424;
+    --neutral-gray800: #151515;
+    --neutral-gray900: #181818;
+    --neutral-black: #000000;
+  
+    /* Sidebar colors - Modern Dark */
+    --sidebar-background: 222 84% 4.9%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+.main-scrollbar-hide {
+  overflow-y: auto;
+  /* Make sure scrolling is enabled */
+}
+
+.main-scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  /* Hide scrollbar for Chrome, Safari and Opera */
+}
+
+.main-scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+main-scrollbar-hide .hide_on_export {
+  display: none !important;
+}
+
+
+.poppins-thin {
+  font-family: "Poppins", sans-serif;
+  font-weight: 100;
+  font-style: normal;
+}
+
+.poppins-extralight {
+  font-family: "Poppins", sans-serif;
+  font-weight: 200;
+  font-style: normal;
+}
+
+.poppins-light {
+  font-family: "Poppins", sans-serif;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.poppins-regular {
+  font-family: "Poppins", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.poppins-medium {
+  font-family: "Poppins", sans-serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.poppins-semibold {
+  font-family: "Poppins", sans-serif;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.poppins-bold {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.poppins-extrabold {
+  font-family: "Poppins", sans-serif;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.poppins-black {
+  font-family: "Poppins", sans-serif;
+  font-weight: 900;
+  font-style: normal;
+}
+
+.poppins-thin-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 100;
+  font-style: italic;
+}
+
+.poppins-extralight-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 200;
+  font-style: italic;
+}
+
+.poppins-light-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 300;
+  font-style: italic;
+}
+
+.poppins-regular-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.poppins-medium-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.poppins-semibold-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.poppins-bold-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.poppins-extrabold-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 800;
+  font-style: italic;
+}
+
+.poppins-black-italic {
+  font-family: "Poppins", sans-serif;
+  font-weight: 900;
+  font-style: italic;
+}
+
+/* print.css */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #tally-page,
+  #tally-page * {
+    visibility: visible;
+  }
+
+  #tally-page {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%) scale(0.85);
+    width: 100%;
+    max-width: 100%;
+    padding: 0.5cm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Hide scrollbars */
+  #tally-page ::-webkit-scrollbar {
+    display: none;
+  }
+
+  #tally-page {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Center and justify content */
+  #tally-page > div {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+  }
+
+  /* Remove outer border from table containers */
+  #tally-page .bg-white {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure tables take full width with proper spacing */
+  #tally-page table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed;
+    margin-bottom: 0.8cm;
+    border-collapse: collapse;
+    text-align: justify;
+    border: 1px solid #ddd;
+  }
+
+  /* Adjust table cells for better fit */
+  #tally-page td,
+  #tally-page th {
+    padding: 8px 6px;
+    word-wrap: break-word;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+
+  /* Remove outer borders from first and last cells */
+  #tally-page tr td:first-child,
+  #tally-page tr th:first-child {
+    border-left: none;
+  }
+
+  #tally-page tr td:last-child,
+  #tally-page tr th:last-child {
+    border-right: none;
+  }
+
+  /* Style table headers */
+  #tally-page th {
+    background-color: #f5f5f5;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 6px;
+  }
+
+  /* Hide specific components */
+  #tally-page .export-button,
+  #tally-page .back-button,
+  #tally-page .toggle-button {
+    display: none !important;
+  }
+
+  /* Ensure proper page breaks */
+  #tally-page .scrollbar-thin {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    width: 100%;
+  }
+
+  /* Adjust margins for better fit */
+  @page {
+    margin: 0.5cm;
+    size: auto;
+  }
+
+  /* Table page break handling */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Ensure table headers repeat on each page */
+  thead {
+    display: table-header-group;
+  }
+
+  /* Add page break before each new table */
+  .table-container {
+    page-break-before: auto;
+    page-break-after: always;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Last table shouldn't force a page break */
+  .table-container:last-child {
+    page-break-after: auto;
+  }
+
+  /* Ensure proper color printing */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Add table title styling */
+  .table-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-bottom: 0.5cm;
+    color: #333;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* Add footer for page numbers */
+  @page {
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+
+  /* Ensure clean layout */
+  #tally-page > * {
+    margin: 0 auto;
+    max-width: 100%;
+  }
+}
+
+/* Print styles */
+@media print {
+  .hide-on-print {
+    display: none !important;
+  }
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+    /* Warning Colors - Dark Mode */
+    --warning-50: #7C2D12;
+    --warning-100: #9A3412;
+    --warning-200: #C2410C;
+    --warning-300: #EA580C;
+    --warning-400: #F59E0B;
+    --warning-500: #FBBF24;
+    --warning-600: #FCD34D;
+    --warning-700: #FDE68A;
+    --warning-800: #FEF3C7;
+    --warning-900: #FFFBEB;
+
+    /* Success Colors - Dark Mode */
+    --success-50: #064E3B;
+    --success-100: #065F46;
+    --success-200: #047857;
+    --success-300: #059669;
+    --success-400: #10B981;
+    --success-500: #34D399;
+    --success-600: #6EE7B7;
+    --success-700: #A7F3D0;
+    --success-800: #D1FAE5;
+    --success-900: #ECFDF5;
+
+    /* Danger Colors - Dark Mode */
+    --danger-50: #7F1D1D;
+    --danger-100: #991B1B;
+    --danger-200: #B91C1C;
+    --danger-300: #DC2626;
+    --danger-400: #EF4444;
+    --danger-500: #F87171;
+    --danger-600: #FCA5A5;
+    --danger-700: #FECACA;
+    --danger-800: #FEE2E2;
+    --danger-900: #FEF2F2;
+
+    /* Neutral Colors - Dark Mode */
+    --neutral-white: #1F2937;
+    --neutral-gray50: #111827;
+    --neutral-gray100: #1F2937;
+    --neutral-gray200: #374151;
+    --neutral-gray300: #4B5563;
+    --neutral-gray400: #6B7280;
+    --neutral-gray500: #9CA3AF;
+    --neutral-gray600: #D1D5DB;
+    --neutral-gray700: #E5E7EB;
+    --neutral-gray800: #F3F4F6;
+    --neutral-gray900: #F9FAFB;
+
+    background-color: var(--neutral-gray50);
+    color: var(--neutral-gray200);
+}
+
+/* Credit Summary Card specific styles */
+.credit-summary {
+    /* Light mode specific styles */
+    --credit-bg: var(--warning-50);
+    --credit-border: var(--warning-100);
+    --credit-text: var(--warning-600);
+    --credit-icon-bg: var(--warning-100);
+    --credit-icon-border: var(--warning-600);
+    --credit-hover: var(--warning-200);
+}
+
+[data-theme='dark'] .credit-summary {
+    /* Dark mode specific styles */
+    --credit-bg: var(--warning-100);
+    --credit-border: var(--warning-200);
+    --credit-text: var(--warning-600);
+    --credit-icon-bg: var(--warning-200);
+    --credit-icon-border: var(--warning-600);
+    --credit-hover: var(--warning-300);
+}
+
+/* Credit Summary Card animations */
+.credit-summary {
+    transition: all 0.3s ease;
+}
+
+.credit-summary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.credit-icon {
+    transition: all 0.3s ease;
+}
+
+.credit-summary:hover .credit-icon {
+    transform: scale(1.1);
+}
+
+/* Credit amount animation */
+.credit-amount {
+    position: relative;
+    overflow: hidden;
+}
+
+.credit-amount::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(
+        to right,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent
+    );
+    transform: translateX(-100%);
+}
+
+.credit-summary:hover .credit-amount::after {
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}

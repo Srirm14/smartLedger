@@ -1,0 +1,19 @@
+image: atlassian/default-image:3
+
+pipelines:
+  branches:
+    master:
+      - step:
+          name: Build and Push to Docker Hub and Deploy to EC2
+          services:
+            - docker
+          caches:
+            - docker
+          script:
+            - export DOCKER_HUB_USERNAME="$DOCKER_HUB_USERNAME"
+            - export DOCKER_HUB_ACCESS_TOKEN="$DOCKER_HUB_ACCESS_TOKEN"
+            - export IMAGE_NAME="navnitan/petrol_bunk_manager:frontend"
+            - export EC2_USER="ec2-user"
+            - export EC2_HOST="54.161.190.100"
+            - export EC2_SSH_KEY="~/.ssh/config"
+            - ./deploy.sh
