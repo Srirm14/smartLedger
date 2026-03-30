@@ -31,6 +31,9 @@ if (!fs.existsSync(rollupPkgPath)) {
 }
 
 const v = JSON.parse(fs.readFileSync(rollupPkgPath, "utf8")).version;
+console.warn(
+  `[ensure-rollup-linux-native] Installing @rollup/rollup-linux-x64-gnu@${v} (npm optional-deps workaround)`
+);
 execSync(`npm install @rollup/rollup-linux-x64-gnu@${v} --no-save --ignore-scripts`, {
   stdio: "inherit",
   cwd: root,

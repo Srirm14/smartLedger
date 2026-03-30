@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "node scripts/ensure-rollup-linux-native.cjs",
     "prebuild": "node scripts/ensure-rollup-linux-native.cjs",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
