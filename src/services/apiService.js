@@ -543,7 +543,7 @@ export const getTallySummaryByDate = async (date) => {
   try {
     const token = getToken();
     const response = await axiosInstance.post(
-      "tally/get_tally_summary",
+      "/tally/get_tally_summary",
       {
         date: date,
       },

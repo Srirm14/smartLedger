@@ -375,6 +375,175 @@ export function summarizeMeterTotalSales(bucket) {
   return total;
 }
 
+function sumCreditsForDate(dateStr) {
+  let s = 0;
+  for (const row of Object.values(db.creditRecords?.data || {})) {
+    if (row.date === dateStr) s += Number(row.total_amount) || 0;
+  }
+  return s;
+}
+
+function sumGlobalExpensesForDate(dateStr) {
+  let s = 0;
+  for (const ge of Object.values(db.globalEntries || {})) {
+    const d = ge.date || todayISO();
+    if (d !== dateStr) continue;
+    if (ge.type === "expense" || !ge.type) {
+      s += Number(ge.amount) || 0;
+    }
+  }
+  return s;
+}
+
+/**
+ * Sales Reports + CSV export — day rows from mock DB (meter, island cashflow, global entries, credits).
+ */
+export function buildIntegratedCashflowReportRows(startStr, endStr) {
+  const rows = [];
+  const a = new Date(`${startStr}T12:00:00`);
+  const b = new Date(`${endStr}T12:00:00`);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) {
+    return { rows: [], totals: {} };
+  }
+
+  let runningCash = 0;
+
+  for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+    const ds = d.toISOString().split("T")[0];
+    let meter_sales = 0;
+    let cashflow_expenses = 0;
+    let net_income_cf = 0;
+
+    for (const key of Object.keys(db.meterByKey || {})) {
+      const parsed = parseCfKey(key);
+      if (!parsed || parsed.dateStr !== ds) continue;
+      meter_sales += summarizeMeterTotalSales(db.meterByKey[key]);
+    }
+
+    for (const key of Object.keys(db.cashflowByKey || {})) {
+      const parsed = parseCfKey(key);
+      if (!parsed || parsed.dateStr !== ds) continue;
+      const s = summarizeCashflowBucket(db.cashflowByKey[key]);
+      net_income_cf += s.net_income;
+      cashflow_expenses += s.expense;
+    }
+
+    cashflow_expenses += sumGlobalExpensesForDate(ds);
+
+    const stock_sales =
+      meter_sales > 0 ? Math.round(meter_sales * 0.38 * 100) / 100 : 0;
+    const total_income =
+      Math.round((meter_sales + stock_sales + net_income_cf) * 100) / 100;
+
+    const stock_expenses =
+      cashflow_expenses > 0
+        ? Math.round(cashflow_expenses * 0.48 * 100) / 100
+        : 0;
+    const total_expenses =
+      Math.round((cashflow_expenses + stock_expenses) * 100) / 100;
+
+    const credits = Math.round(sumCreditsForDate(ds) * 100) / 100;
+
+    const net_cashflow =
+      Math.round((total_income - total_expenses - credits) * 100) / 100;
+    runningCash += net_cashflow;
+
+    rows.push({
+      date: ds,
+      meter_sales: Math.round(meter_sales * 100) / 100,
+      stock_sales,
+      total_income,
+      cashflow_expenses: Math.round(cashflow_expenses * 100) / 100,
+      stock_expenses,
+      total_expenses,
+      credits,
+      net_cashflow,
+      cash_on_hand: Math.round(runningCash * 100) / 100,
+    });
+  }
+
+  const keys = [
+    "meter_sales",
+    "stock_sales",
+    "total_income",
+    "cashflow_expenses",
+    "stock_expenses",
+    "total_expenses",
+    "credits",
+    "net_cashflow",
+    "cash_on_hand",
+  ];
+  const totals = keys.reduce((acc, k) => {
+    acc[k] =
+      Math.round(rows.reduce((s, r) => s + (Number(r[k]) || 0), 0) * 100) / 100;
+    return acc;
+  }, {});
+
+  return { rows, totals };
+}
+
+/**
+ * Island Tally Report — response body must be a 3-tuple array (usePortfolioSalesTallyStore / TallyPage):
+ * [0] keyed map of meter line items, [1] income/expense, [2] payment summary for PaymentSummaryTable.
+ */
+export function buildTallyReportResponse(portfolioId, shiftId, dateStr) {
+  const pid =
+    portfolioId != null && portfolioId !== "" ? String(portfolioId) : "1";
+  const sid =
+    shiftId != null && shiftId !== "" ? String(shiftId) : "1";
+  const d = dateStr || todayISO();
+  const key = cfKey(pid, sid, d);
+  const meterBucket = db.meterByKey[key] || {};
+  const cfBucket = db.cashflowByKey[key] || {};
+
+  const salesByKey = {};
+  let i = 1;
+  for (const row of Object.values(meterBucket)) {
+    const catLabel =
+      (row.category || "").toLowerCase() === "fuel" ? "Fuel" : "Others";
+    const sold = Number(row.sold_quantity) || 0;
+    const price = Number(row.price) || 0;
+    const sales = sold * price;
+    salesByKey[String(i)] = {
+      category: catLabel,
+      sales_unit_name: row.sales_unit_name || `Pump-${i}`,
+      product_name: row.product_name || `Product ${i}`,
+      opening_reading: Number(row.opening_reading) || 0,
+      closing_reading: Number(row.closing_reading) || 0,
+      meter_difference: sold,
+      opening_quantity: Number(row.opening_reading) || 0,
+      closing_quantity: Number(row.closing_reading) || 0,
+      sold_quantity: sold,
+      uom: row.uom || "L",
+      price,
+      sales,
+    };
+    i++;
+  }
+
+  const total_sales = summarizeMeterTotalSales(meterBucket);
+  const cf = summarizeCashflowBucket(cfBucket);
+  const overall_payment_received =
+    Math.round((total_sales + cf.net_income) * 100) / 100;
+  const credit = 0;
+  const overall_payment_tally =
+    Math.round((overall_payment_received - total_sales - credit) * 100) / 100;
+
+  const incomeExpense = {
+    total_income: cf.net_income,
+    total_expense: cf.expense,
+  };
+
+  const tally = {
+    overall_payment_received,
+    total_sales,
+    overall_payment_tally,
+    credit,
+  };
+
+  return [salesByKey, incomeExpense, tally];
+}
+
 /** Clear cashflow for one portfolio / shift / date (island tab). */
 export function deleteCashflowBucket(portfolioId, shiftId, dateStr) {
   const key = cfKey(portfolioId, shiftId, dateStr);

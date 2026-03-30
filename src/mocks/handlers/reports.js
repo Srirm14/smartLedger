@@ -6,6 +6,7 @@ import {
   summarizeCashflowBucket,
   summarizeMeterTotalSales,
   todayISO,
+  buildIntegratedCashflowReportRows,
 } from "../ryw.js";
 import {
   buildCashflowEntriesDynamic,
@@ -142,49 +143,42 @@ export const reportHandlers = [
 
   http.get(
     "*/report/integrated_cashflow_report/get/:start/:end",
-    async ({ params }) => {
+    async ({ params, request }) => {
       await delayGet();
-      const { start, end } = params;
-      const rows = [];
-      const a = new Date(`${start}T12:00:00`);
-      const b = new Date(`${end}T12:00:00`);
-      if (!Number.isNaN(a.getTime()) && !Number.isNaN(b.getTime())) {
-        for (
-          let d = new Date(a);
-          d <= b && rows.length < 45;
-          d.setDate(d.getDate() + 1)
-        ) {
-          const i = rows.length;
-          const ds = d.toISOString().split("T")[0];
-          rows.push({
-            date: ds,
-            meter_sales: 5200 + i * 95,
-            stock_sales: 2100 + i * 40,
-            total_income: 7300 + i * 130,
-            cashflow_expenses: 750 + i * 12,
-            stock_expenses: 420 + i * 8,
-            total_expenses: 1170 + i * 20,
-            credits: 280 + i * 6,
-            net_cashflow: 6130 + i * 110,
-            cash_on_hand: 15000 + i * 180,
-          });
+      let start = params.start;
+      let end = params.end;
+      if (!start || !end) {
+        const url = new URL(request.url);
+        const parts = url.pathname.split("/").filter(Boolean);
+        const gi = parts.indexOf("get");
+        if (gi >= 0 && parts[gi + 1] && parts[gi + 2]) {
+          start = parts[gi + 1];
+          end = parts[gi + 2];
         }
       }
-      if (rows.length === 0) {
-        const ds = new Date().toISOString().split("T")[0];
-        rows.push({
-          date: ds,
-          meter_sales: 5000,
-          stock_sales: 2000,
-          total_income: 7000,
-          cashflow_expenses: 700,
-          stock_expenses: 400,
-          total_expenses: 1100,
-          credits: 300,
-          net_cashflow: 5900,
-          cash_on_hand: 14000,
-        });
-      }
+      const { rows, totals } = buildIntegratedCashflowReportRows(
+        start || todayISO(),
+        end || todayISO()
+      );
+      const data = rows.length
+        ? rows
+        : (() => {
+            const ds = todayISO();
+            return [
+              {
+                date: ds,
+                meter_sales: 0,
+                stock_sales: 0,
+                total_income: 0,
+                cashflow_expenses: 0,
+                stock_expenses: 0,
+                total_expenses: 0,
+                credits: 0,
+                net_cashflow: 0,
+                cash_on_hand: 0,
+              },
+            ];
+          })();
       const keys = [
         "meter_sales",
         "stock_sales",
@@ -196,13 +190,16 @@ export const reportHandlers = [
         "net_cashflow",
         "cash_on_hand",
       ];
-      const totals = keys.reduce((acc, k) => {
-        acc[k] = rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
-        return acc;
-      }, {});
+      const totalsOut =
+        rows.length > 0
+          ? totals
+          : keys.reduce((acc, k) => {
+              acc[k] = data.reduce((s, r) => s + (Number(r[k]) || 0), 0);
+              return acc;
+            }, {});
       return HttpResponse.json({
-        data: rows,
-        totals,
+        data,
+        totals: totalsOut,
         date_range: { start, end },
       });
     }

@@ -14,6 +14,7 @@ import {
   applyCashflowUpsert,
   deleteCashflowEntryById,
   buildTransactionLedgerResponse,
+  buildTallyReportResponse,
   deleteCashflowAllForDate,
   deleteCashflowBucket,
   clearMeterBucket,
@@ -425,14 +426,26 @@ export const domainHandlers = [
     );
   }),
 
-  http.post("*/tally/get", async () => {
+  http.post("*/tally/get", async ({ request }) => {
     await delayWrite();
-    return HttpResponse.json({ summary: { total: 10000 } });
+    const body = await parseJson(request);
+    const pid = body.portfolio_id ?? body.portfolioId;
+    const sid = body.shift_id ?? body.shiftId;
+    const date = body.date || todayISO();
+    const data = buildTallyReportResponse(pid, sid, date);
+    return HttpResponse.json(data);
   }),
 
-  http.post("*/tally/get_tally_summary", async () => {
+  http.post("*/tally/get_tally_summary", async ({ request }) => {
     await delayWrite();
-    return HttpResponse.json({ rows: [] });
+    const body = await parseJson(request);
+    const date = body.date || todayISO();
+    const snap = db.portfolioByDate?.[date];
+    const first = snap ? Object.values(snap)[0] : null;
+    const pid = first?.portfolio_id ?? 1;
+    const sid = first?.shift_id ?? 1;
+    const data = buildTallyReportResponse(pid, sid, date);
+    return HttpResponse.json(data);
   }),
 
   http.get("*/cashflow/:portfolioId/get", async ({ params, request }) => {
